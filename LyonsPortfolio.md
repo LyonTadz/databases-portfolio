@@ -1,4 +1,4 @@
-# Personal Portfolio for the Databases class <at HSBI>
+# Personal Portfolio for the Databases Class
 
 > When you start editing this file, remove this description.
 >
@@ -66,5 +66,3 @@ My personal profile and expectations, you can find [here](Module01/README.md#tas
 ## Miscellanious
 
 - [Hardware in my/our possession](Hardware/README.md)
-
-
