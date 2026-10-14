@@ -12,9 +12,9 @@ Programming experience and languages: Python only. In my first semester I built 
 
 Prior SQL: None. Starting from zero here.
 
-Databases I have used: None directly. The closest thing is a Fandom wiki I built — not a database, but it did teach me something about structuring information so other people can find it, and about writing in markup with interlinks rather than prose.
+Databases I have used: None directly. The closest thing is a Fandom wiki I built [here](https://shinkais-purpose.fandom.com) — not a database, but it did teach me something about structuring information so other people can find it, and about writing in markup with interlinks rather than prose.
 
-Python: Yes — see above. Comfortable enough to read and modify code, less practised at designing something from scratch.
+Python: Yes; see above. Comfortable enough to read and modify code, less practised at designing something from scratch.
 
 Command line: Limited.
 
