@@ -26,16 +26,23 @@ survives contact with a dataset bigger than a toy.
 |---|---|:---:|
 | 1 | Pod, portfolio repo, this page | ✅ done (pod pending) |
 | 2 | Commit history + interlinks | interlinks done, pod link pending |
-| 3 | `uv` toolchain + `uv-check.py` output | not started |
-| 4 | `shell-tour.txt`, `tour.sql` | not started |
-| 5 | `sql-island.md` | not started |
-| 6 | `generate_telemetry.py`, `load_telemetry.py`, query results | not started |
+| 3 | `uv` toolchain + `uv-check.py` output | ✅ done |
+| 4 | `shell-tour.txt`, `tour.sql` | ✅ done |
+| 5 | `sql-island.md` | ✅ done |
+| 6 | `generate_telemetry.py`, `load_telemetry.py`, query results | ✅ done |
 | 7 | `llm-sql.md` — prompt, SQL, query plan, verification | not started |
 | — | `reflection.md` | not started |
 
-## Task 4 - most useful dot-command
+## Task 4 — most useful dot-command
 
-I found .mode column most useful because the default pipe-separated output (cnc-01|1.2) is unreadable the moment a query returns more than two columns — and it turns out .mode column also switches headers on by itself, so one command does the work I thought needed two.
+I found `.mode column` most useful because the default pipe-separated output
+(`cnc-01|1.2`) is unreadable the moment a query returns more than two columns.
+And it turns out `.mode column` also switches headers on by itself, so one
+command does the work I thought needed two.
+
+## Task 6 - what would this cost in the cloud?
+
+2 GB and two readers means the vendor’s stack is oversized, and then governance is the question of who owns a system that shouldn’t exist at this scale.
 
 ## Pod
 
