@@ -1,7 +1,7 @@
 [project]
 name = "databases-portfolio"
 version = "0.1.0"
-description = "Add your description here"
+description = "HSBI Databases (DBS) coursework portfolio — local-first edition"
 readme = "README.md"
 authors = [
     { name = "Lyon Andres Dabu Tadeo", email = "lyontadeo.2006@gmail.com" }
