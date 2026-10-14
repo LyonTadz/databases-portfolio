@@ -1,6 +1,6 @@
 # Module 1 — Introduction & Local-First Foundations
 
-[← Portfolio home](../README.md) · [Course module](https://github.com/iotempire/iotempire-teaching/blob/main/full-classes/hsbi-databases-10d/modules/01-introduction-and-local-first.md)
+[← Portfolio home](../README.md) · [Course module](https://github.com/iotempire/iotempire-teaching/blob/main/full-classes/hsbi-databases-10d/modules/01-introduction-and-local-first.md) · [Module index](https://github.com/iotempire/iotempire-teaching/blob/main/full-classes/hsbi-databases-10d/modules/00-index.md) · [Syllabus](https://github.com/iotempire/iotempire-teaching/blob/main/full-classes/hsbi-databases-10d/syllabus.md)
 
 ## 🎯 Learning Goals
 
@@ -24,8 +24,8 @@ survives contact with a dataset bigger than a toy.
 
 | Task | Deliverable | Status |
 |---|---|:---:|
-| 1 | Pod, portfolio repo, this page | in progress |
-| 2 | Commit history + interlinks | not started |
+| 1 | Pod, portfolio repo, this page | ✅ done (pod pending) |
+| 2 | Commit history + interlinks | interlinks done, pod link pending |
 | 3 | `uv` toolchain + `uv-check.py` output | not started |
 | 4 | `shell-tour.txt`, `tour.sql` | not started |
 | 5 | `sql-island.md` | not started |
