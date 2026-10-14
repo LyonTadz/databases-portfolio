@@ -33,6 +33,10 @@ survives contact with a dataset bigger than a toy.
 | 7 | `llm-sql.md` — prompt, SQL, query plan, verification | not started |
 | — | `reflection.md` | not started |
 
+## Task 4 - most useful dot-command
+
+<I found .mode column most useful because the default pipe-separated output (cnc-01|1.2) is unreadable the moment a query returns more than two columns — and it turns out .mode column also switches headers on by itself, so one command does the work I thought needed two.>
+
 ## Pod
 
 - Me: [Lyon Andres Dabu Tadeo](../README.md)
