@@ -1,0 +1,13 @@
+# local data and secrets stay out of the repository
+.venv/
+*.db
+*.db-journal
+*.duckdb
+*.parquet
+.env
+__pycache__/
+
+# generated data — a reviewer rebuilds it from the scripts
+*.csv
+
+git commit -m "Add gitignore for databases, secrets and generated data"
