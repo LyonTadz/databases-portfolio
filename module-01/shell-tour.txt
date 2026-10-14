@@ -14,7 +14,16 @@ machine  peak
 -------  ----
 cnc-01   1.2 
 cnc-02   2.4 
-Run Time: real 0.000 user 0.000028 sys 0.000010
+Run Time: real 0.000 user 0.000026 sys 0.000009
 
-## (telemetry.db not built yet — re-run this after Task 6
-##  for a timing above 0.000s)
+## telemetry.db (172,800 rows) — a timing that is actually visible
+.headers on
+.mode column
+.timer on
+SELECT machine, max(vib_rms) AS peak FROM readings GROUP BY machine;
+machine  peak 
+-------  -----
+cnc-01   2.398
+cnc-02   3.168
+cnc-03   2.55 
+Run Time: real 0.051 user 0.038099 sys 0.008786

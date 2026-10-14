@@ -1,0 +1,16 @@
+machine  n    
+-------  -----
+cnc-01   57600
+cnc-02   57600
+cnc-03   57600
+Run Time: real 0.054 user 0.038580 sys 0.008329
+machine  peak_vib
+-------  --------
+cnc-01   2.398   
+cnc-02   3.168   
+cnc-03   2.55    
+Run Time: real 0.044 user 0.036150 sys 0.005879
+over_alarm
+----------
+11714     
+Run Time: real 0.006 user 0.004379 sys 0.001722

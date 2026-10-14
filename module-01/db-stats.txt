@@ -1,0 +1,3 @@
+-rw-r--r--  1 lyontadeo  staff   7.4M Oct 15 00:25 module-01/telemetry.csv
+-rw-r--r--  1 lyontadeo  staff    10M Oct 15 00:26 module-01/telemetry.db
+172800|86400
