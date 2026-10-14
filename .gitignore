@@ -9,5 +9,3 @@ __pycache__/
 
 # generated data — a reviewer rebuilds it from the scripts
 *.csv
-
-git commit -m "Add gitignore for databases, secrets and generated data"
