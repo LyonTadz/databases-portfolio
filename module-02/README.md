@@ -1,0 +1,70 @@
+# Module 2 — Data Contracts & Reading Legacy Schemas (ERD Audits)
+
+[← Portfolio home](../README.md) · [Module 1](../module-01/README.md) · [Course module](https://github.com/iotempire/iotempire-teaching/blob/main/full-classes/hsbi-databases-10d/modules/02-data-contracts-and-legacy-schemas.md) · [Syllabus](https://github.com/iotempire/iotempire-teaching/blob/main/full-classes/hsbi-databases-10d/syllabus.md)
+
+**Session 2.** Conceptual data modeling and requirements analysis — approached the way engineers actually meet them: you inherit a schema that already exists and have to reconstruct what it *means*.
+
+## 🎯 Learning Goals
+
+By the end of this module, I can:
+
+1. Reconstruct an **ER/EER model** — entities, attributes, keys, relationships, cardinalities — from an undocumented SQL schema.
+2. Identify **integrity defects** — missing foreign keys, orphan rows, redundant data, normalization violations — with queries, not intuition.
+3. Distinguish an **entity relationship** from an attribute, and a **surrogate key** from a natural key, and justify the choice.
+4. Express a schema as a **code-first data contract** (Pydantic / SQLAlchemy) that an application can enforce.
+5. Write the **requirements the schema forgot** — the business rules nobody encoded.
+
+## What I plan to explore
+
+<!-- Your own words. A few sentences: what you actually want to get out of this module,
+     and anything from Module 1 or your own projects that connects to it.
+     This is the part an examiner can ask you about, so it has to be yours. -->
+
+## The scenario
+
+A plastics injection-molding plant runs a maintenance tool built in 2011. It works, so nobody touched it — until a simple question (*"which parts did we replace on this machine last year, and how often?"*) took a specialist an afternoon to answer. The schema is TEXT columns with no relationships: a job points at a machine by *name*, prices are stored as text, and the parts used in a job live in one comma-separated string.
+
+My job is to audit it, reconstruct the ER model it should have had, prove the defects with queries, and write a contract the next application can rely on.
+
+## Contents
+
+| File | What it holds |
+|---|---|
+| [`study-log.md`](./study-log.md) | Task A/B/C — references, searches, findings, LLM Q&A with verification, ER sketches, pod agreement |
+| [`setup-legacy.sql`](./setup-legacy.sql) | The flawed schema + seed rows, so a reviewer can rebuild `legacy.db` |
+| `er-audit.md` | Task 1 — entity list, reconstructed ER diagram, cardinalities proven by counts |
+| `contract.py` | Task 3 — Pydantic + SQLAlchemy data contract and the corrected DDL |
+| `reflection.md` | Logbook entry for this block |
+| `img/` | Sketches and diagram screenshots |
+
+## Rebuilding the database
+
+`legacy.db` is **not** committed — it is generated, and `.gitignore` keeps `*.db` out of the repo. Rebuild it from the script:
+
+```sh
+sqlite3 module-02/legacy.db < module-02/setup-legacy.sql
+```
+
+Check it loaded:
+
+```sh
+sqlite3 module-02/legacy.db "SELECT COUNT(*) FROM machine; SELECT COUNT(*) FROM part; SELECT COUNT(*) FROM maint_job;"
+```
+
+Four rows in each — including, deliberately, one duplicate part and one job referencing a machine that does not exist.
+
+## Status
+
+- [ ] Task A — pod study → `study-log.md`
+- [ ] Task B — four sketches from written descriptions + one `CREATE TABLE`/`COUNT` proof
+- [ ] Task C — pod-pair exchange, agreed learning, Discord image
+- [ ] Task 1 — reconstruct the ER model → `er-audit.md`
+- [ ] Task 2 — prove five integrity defects with queries
+- [ ] Task 3 — data contract → `contract.py` + emitted DDL
+- [ ] Reflection
+- [ ] ◇ Task 4 — EER inheritance, two models + decision
+- [ ] ◇ Task 5 — Mermaid ER lab
+
+---
+
+[← Module 1](../module-01/README.md) · [Portfolio home](../README.md)
