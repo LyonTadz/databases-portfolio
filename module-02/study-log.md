@@ -102,18 +102,12 @@
 ### 6.1 — 1:1 · machine ↔ nameplate
 
 - **Entities / attributes:**
-  - `Machine` — machine_id (PK), machine_name, site
+  - `Machine` — machine_id (PK), machine_name
   - `Nameplate` — nameplate_id (PK), machine_id (FK, UNIQUE), serial_no, manufacturer
 
-- **Cardinality and where the key goes:** 1:1, total participation both sides
-  (`||--||`). The foreign key can sit on either side; `machine_id` goes on
-  `Nameplate` with a `UNIQUE` constraint. The UNIQUE is what makes it 1:1 —
-  without it, two machines could claim the same nameplate and it degrades to 1:n.
+- **Cardinality and where the key goes:** This is a strict one-to-one relationship where every record on both sides must have a match. You can put the connecting link on either table; for example, putting the machine ID on the nameplate table. Adding a "unique" rule to that ID is crucial because it ensures a nameplate can only belong to one machine, preventing multiple machines from sharing the same one.
 
-- **Separate entity or just an attribute? Why:** Separate entity. A nameplate can
-  be re-stamped or replaced during the machine's life, and the plant needs to be
-  able to record that independently of the machine itself. A thing that can be
-  swapped out and tracked on its own has its own existence, so it gets its own table.
+- **Separate entity or just an attribute? Why:** Separate entity. A machine's nameplate can be changed or replaced over time, and the factory needs to track that change separately from the machine. Because you can swap it out and track it on its own, it gets its own table.
 
 - **Sketch:**
 
@@ -123,7 +117,6 @@ erDiagram
     MACHINE {
         int machine_id PK
         string machine_name
-        string site
     }
     NAMEPLATE {
         int nameplate_id PK
@@ -133,18 +126,93 @@ erDiagram
     }
 ```
 
+### 6.2 — 1:n · machine → sensors
+ 
+- **Entities / attributes:**
+  - `machine` - machine_id (PK), machine_name
+  - `sensor` - sensor_id (PK), machine_id (FK), sensor_type, serial_number
+ 
+- **Cardinality and where the foreign key goes:** This is a one-to-many relationship where a single machine can have many sensors, but each sensor is installed on exactly one machine. Because of this, the connecting link (`machine_id`) must go on the **Sensor** table. You do **not** add a unique rule to this ID, which is what allows multiple different sensors to share and point to the same machine.
+ 
+- **Sketch:**
+
+```mermaid
+erDiagram
+    MACHINE ||--o{ SENSOR : carries
+    MACHINE {
+        int machine_id PK
+        string machine_name
+    }
+    SENSOR {
+        int sensor_id PK
+        int machine_id FK
+        string sensor_type
+        string serial_number
+    }
+```
+
 ### 6.3 — m:n · work orders ↔ parts
 
 - **Entities / attributes:**
-- **Junction table and its key:**
-- **How "an order lists a part only once" is enforced:**
+  - `work order` - work_order_id (PK)
+  - `part` - part_id (PK)
+  - `work order part` - work_order_id (FK), part_id (FK)
+    
+- **Junction table and its key:** This is a many-to-many relationship, so you need a junction table (such as Work Order Part). Its primary key is a composite key made up of both `work_order_id` and `part_id`. This combination ensures that a specific part can only be listed once on a single work order, while still allowing parts to be used across many different orders.
+  
+- **How "an order lists a part only once" is enforced:** This rule is enforced by making the combination of `work_order_id` and `part_id` the composite primary key (or a unique constraint) of the junction table. Because a primary key combination must be entirely unique, the database will automatically reject any attempt to insert a duplicate row for the same part on the same work order.
+  
 - **Sketch:**
+
+```mermaid
+erDiagram
+    WORK_ORDER ||--o{ WORK_ORDER_PART : lists
+    PART ||--o{ WORK_ORDER_PART : "appears in"
+    WORK_ORDER {
+        int work_order_id PK
+    }
+    PART {
+        int part_id PK
+    }
+    WORK_ORDER_PART {
+        int work_order_id PK
+        int part_id PK
+    }
+```
 
 ### 6.4 — entity vs. attribute vs. relationship · maintenance job
 
-- **Is the job a relationship or an entity? My answer and why:**
-- **Is the technician an entity or just a name? My answer and why:**
+- **Entities / attributes:**
+  - `machine` - machine_id (PK), machine_name
+  - `technician` - technician_id (PK), name, specialization
+  - `maintenance job` - job_id (PK), job_date, machine_id (FK), technician_id (FK)
+
+- **Is the job a relationship or an entity? My answer and why:** The job is an entity. Even though the job links a machine and a technician, it has its own details (like an ID and dates) and represents a real event the factory needs to track. In database design, actions or events that connect different things and collect data are treated as full entities instead of simple connection lines.
+
+- **Is the technician an entity or just a name? My answer and why:** The technician is an entity. Because a technician performs many jobs and has an independent identity that needs to be tracked across multiple events. If a technician were just a name, it would simply be a text attribute living inside the job table. However, since multiple jobs can be tied to the exact same person, they require their own separate table so the system can track them properly.
+
 - **Sketch:**
+
+```mermaid
+erDiagram
+    MACHINE ||--o{ MAINTENANCE_JOB : "is serviced by"
+    TECHNICIAN ||--o{ MAINTENANCE_JOB : performs
+    MACHINE {
+        int machine_id PK
+        string machine_name
+    }
+    TECHNICIAN {
+        int technician_id PK
+        string name
+        string specialization
+    }
+    MAINTENANCE_JOB {
+        int job_id PK
+        int machine_id FK
+        int technician_id FK
+        date job_date
+    }
+```
 
 ### 6.5 — The proof
 
