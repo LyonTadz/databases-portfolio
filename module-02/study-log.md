@@ -84,13 +84,13 @@
 ### Sketch 1 — UpGrad ER Diagram
 
 - **Source: [Master ER Diagram in DBMS: A Guide to Database Design & Management](https://www.upgrad.com/blog/er-diagram-in-dbms/)**
-- **Image:** [UpGrad ER Diagram](UpGrad_ER_Diagram.avif)
+- **Image:** ![UpGrad ER Diagram](UpGrad_ER_Diagram.avif)
 - **What it showed me that others did not: It helped me understand these database concepts easier by showing them as layers that build outward, starting with the core entities at the center, adding their details as attributes, and finally connecting them all together**
 
 ### Sketch 2 — Aron's School System ER Diagram
 
 - **Source: Aron's ChatGPT**
-- **Image:** [School System ER Diagram](School_System_ER_Diagram.png)
+- **Image:** ![School System ER Diagram](School_System_ER_Diagram.png)
 - **What it showed me that others did not: This solidified my understanding of these concepts since it gave information on the relation between the entities.**
 
 ---
