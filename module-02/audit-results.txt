@@ -1,0 +1,135 @@
+========================================================================
+Cardinality: how many parts hide in each parts_used list?
+========================================================================
+SELECT job_id, parts_used,
+       CASE WHEN parts_used IS NULL THEN 0
+            ELSE LENGTH(parts_used) - LENGTH(REPLACE(parts_used, ',', '')) + 1
+       END AS n_parts
+FROM maint_job;
+
+  job_id | parts_used | n_parts
+  -------+------------+--------
+  1 | P-1001,P-1002 | 2
+  2 | P-1003 | 1
+  3 | P-1001 | 1
+  4 | NULL | 0
+
+  4 row(s), 0.241 ms
+
+========================================================================
+Cardinality: distinct machines named in jobs vs rows in machine
+========================================================================
+SELECT (SELECT COUNT(*) FROM machine)                      AS machine_rows,
+       (SELECT COUNT(DISTINCT machine_name) FROM machine)  AS distinct_machine_names,
+       (SELECT COUNT(DISTINCT machine_name) FROM maint_job) AS names_used_by_jobs;
+
+  machine_rows | distinct_machine_names | names_used_by_jobs
+  -------------+------------------------+-------------------
+  4 | 4 | 3
+
+  1 row(s), 0.199 ms
+
+========================================================================
+Cardinality: jobs per machine (is it really 1:n?)
+========================================================================
+SELECT machine_name, COUNT(*) AS jobs
+FROM maint_job GROUP BY machine_name ORDER BY jobs DESC;
+
+  machine_name | jobs
+  -------------+-----
+  cnc-01 | 2
+  cnc-05 | 1
+  cnc-02 | 1
+
+  3 row(s), 0.048 ms
+
+========================================================================
+Is technician an entity or an attribute? (count distinct)
+========================================================================
+SELECT technician, COUNT(*) AS jobs
+FROM maint_job GROUP BY technician ORDER BY jobs DESC;
+
+  technician | jobs
+  -----------+-----
+  Beier | 2
+  Werther | 1
+  Klaas | 1
+
+  3 row(s), 0.026 ms
+
+========================================================================
+Defect 1: orphan maintenance jobs (machine_name not in machine)
+========================================================================
+SELECT m.job_id, m.machine_name
+FROM maint_job m
+LEFT JOIN machine x ON m.machine_name = x.machine_name
+WHERE x.machine_name IS NULL;
+
+  job_id | machine_name
+  -------+-------------
+  3 | cnc-05
+
+  1 row(s), 0.090 ms
+
+========================================================================
+Defect 2: duplicate natural keys in part
+========================================================================
+SELECT part_no, COUNT(*) AS copies
+FROM part GROUP BY part_no HAVING COUNT(*) > 1;
+
+  part_no | copies
+  --------+-------
+  P-1003 | 2
+
+  1 row(s), 0.035 ms
+
+========================================================================
+Defect 3: unit_price stored as text - numeric comparison fails silently
+========================================================================
+SELECT part_no, unit_price FROM part WHERE unit_price < '15';
+
+  part_no | unit_price
+  --------+-----------
+  P-1001 | 12.50
+
+  1 row(s), 0.020 ms
+
+========================================================================
+Defect 3b: the same comparison done correctly, for contrast
+========================================================================
+SELECT part_no, unit_price FROM part WHERE CAST(unit_price AS REAL) < 15.0;
+
+  part_no | unit_price
+  --------+-----------
+  P-1001 | 12.50
+  P-1003 | 9.90
+  P-1003 | 9.90
+
+  3 row(s), 0.022 ms
+
+========================================================================
+Defect 4: installed dates that are not dates
+========================================================================
+SELECT machine_name, installed FROM machine
+WHERE installed NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]';
+
+  machine_name | installed
+  -------------+----------
+  RANDOM-NAME | unknown
+
+  1 row(s), 0.026 ms
+
+========================================================================
+Defect 5: naive join on the comma list silently loses multi-part jobs
+========================================================================
+SELECT j.job_id, p.description
+FROM maint_job j
+JOIN part p ON p.part_no = j.parts_used;
+
+  job_id | description
+  -------+------------
+  2 | Coolant filter
+  2 | Coolant filter
+  3 | Ball bearing 6203
+
+  3 row(s), 0.044 ms
