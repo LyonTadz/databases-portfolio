@@ -99,7 +99,7 @@
 
 ### Sketch 2 — Aron's School System ER Diagram
 
-- **Source:** Generated with ChatGPT by Aron (pod partner). I did not write the prompt.
+- **Source:** Generated with ChatGPT by Aron (not my pod partner). I did not write the prompt.
 - **Image:** ![School System ER Diagram](./School_System_ER_Diagram.png)
 - **What it showed me that others did not:** This was my clearest example of **Chen notation** — rectangles for entities, diamonds for relationships, ovals for attributes, underlined primary keys, and 1/N labels on the relationship lines. The other diagrams I found used crow's-foot, where relationships are just lines, so seeing attributes hanging off a relationship-capable notation made the difference between the two styles concrete.
 
@@ -254,23 +254,17 @@ erDiagram
 
 > Task C. The 3–5 points both pods stand behind, what I learned from the other pod, and any disagreement we left open.
 
-**Pod we paired with:** I was not yet assigned to a Task Pod for this session, so I
-worked with Rayan and Aron. We then paired with a neighbouring pod for the exchange.
+**Pod we paired with:** I was not yet assigned to a Task Pod for this session, so I worked with Rayan and Aron. We then paired with a neighbouring pod for the exchange.
 <!-- TODO: add the names of the neighbouring pod members once I have them. -->
 
 **Agreed points:**
 
-1. **Entities** — what counts as a thing with independent existence, and where the
-   line falls between an entity and an attribute that merely describes one.
-2. **Relationships** — that a relationship is the link between entities, read in
-   both directions, and that the verb in a description is what signals one.
-3. **Cardinality** — how many instances relate to how many, and that it has to be
-   stated in both directions rather than assumed from one side.
+1. **Entities** — what counts as a thing with independent existence, and where the line falls between an entity and an attribute that merely describes one.
+2. **Relationships** — that a relationship is the link between entities, read in both directions, and that the verb in a description is what signals one.
+3. **Cardinality** — how many instances relate to how many, and that it has to be stated in both directions rather than assumed from one side.
 
-**What I changed in this log after the exchange:** Nothing. The discussion confirmed
-the model my group had already arrived at rather than correcting it.
+**What I changed in this log after the exchange:** Nothing. The discussion confirmed the model my group had already arrived at rather than correcting it.
 
-**Disagreement we left open:** None. Both pods converged on the same reading of
-entities, relationships and cardinality.
+**Disagreement we left open:** None. Both pods converged on the same reading of entities, relationships and cardinality.
 
 **Image we posted in Discord:** [Aron's ER Diagram](https://discord.com/channels/1064132619735928932/1560197797364502559/1560207494683566152) — chosen because: We both understood entities, relations, and attributes better after seeing this.
