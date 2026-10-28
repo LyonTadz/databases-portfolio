@@ -8,6 +8,42 @@ An ER diagram is documentation; a contract is executable. This file expresses th
 
 Run:  uv run python module-02/contract.py
       uv run python module-02/contract.py > module-02/contract-ddl.sql
+      
+Which constraints live where, and why
+-------------------------------------
+
+Three categories, decided by who needs to be stopped and who can do the stopping.
+
+MODEL ONLY (Pydantic)
+    The `SN-` serial number prefix. This is a house convention, not a structural
+    truth about the data — Kortmann could buy machines from a supplier who numbers
+    them differently, and the rule would have to change. Changing a validator is
+    an edit; changing a CHECK constraint is a schema migration against a live
+    table. Format rules that may be revised belong at the application boundary.
+
+BOTH LAYERS
+    `unit_price > 0`. Pydantic catches it at the point of entry, where the error
+    can name the field and the user can fix it immediately. The CHECK constraint
+    catches it regardless of what did the writing. The duplication is deliberate:
+    one layer is for a good error message, the other is for being certain.
+
+DATABASE ONLY
+    Every foreign key, and the composite primary key on `job_part`. These are not
+    a choice — the application *cannot* enforce them honestly. To know whether
+    machine_id 7 exists, Python would have to query for it, and between that query
+    and the INSERT another process can delete the row. Only the database can check
+    and commit in one atomic step.
+
+The deciding question is "what else writes to this database?" The answer is always
+more than you think: a maintenance script, someone in the sqlite3 shell, a second
+application three years from now. Every one of those bypasses the Pydantic models
+entirely. `legacy.db` is the proof — job 3 points at a machine `cnc-05` that never
+existed, because `machine_name` was a TEXT column and nothing at the database layer
+was checking.
+
+Rule of thumb: validate in the model for the user's benefit, constrain in the
+database for the data's.
+
 """
 from datetime import date
 
