@@ -16,9 +16,7 @@ By the end of this module, I can:
 
 ## What I plan to explore
 
-<!-- Your own words. A few sentences: what you actually want to get out of this module,
-     and anything from Module 1 or your own projects that connects to it.
-     This is the part an examiner can ask you about, so it has to be yours. -->
+Module 1 ended with me designing a schema from scratch for telemetry I had generated myself. This module runs the opposite direction, inheriting a schema somebody else built and working out what it was meant to mean. The connection I want to chase is that my production line simulator lost its data because it never persisted anything, while Kortmann's plant has the opposite problem: fifteen years of maintenance history kept in a form nobody can query. What I actually want to find out is whether I would have caught these defects in a schema I had designed myself, or whether it takes inheriting someone else's mess to see them.
 
 ## The scenario
 
