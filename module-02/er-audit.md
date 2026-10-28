@@ -163,7 +163,7 @@ I would model `technician` as a separate entity because the same technician can 
 
 **My answer and why:**
 
-I would use a surrogate `machine_id` as the primary key because machine names can change or be entered incorrectly. I would keep serial_no as a UNIQUE natural key because it identifies the real machine and should not be duplicated.
+Instead of using `serial_no` as the primary key, I'd use a surrogate `machine_id`. I'm avoiding `serial_no` as a primary key because serial numbers can change, which would break all referencing foreign keys. AND long strings take up more storage and slow down joins across foreign keys. So, use `machine_id` as the primary key, but keep `serial_no` under a `UNIQUE` constraint to still prevent duplicate serial numbers safely. 
 
 ### 4.3 Natural or surrogate key for `Part`?
 
@@ -171,7 +171,7 @@ I would use a surrogate `machine_id` as the primary key because machine names ca
 
 **My answer and why:**
 
-I would use `part_no` as the natural primary key because it is short, meaningful, and intended to identify each part. The duplicate `P-1003` must be corrected before enforcing the primary key constraint.
+I'd use `part_no` as the natural primary key. Because it's short, stable, and easy to shop floor technicians to read strait from shelf labels. And unlike machine serial numbers, part numbers are managed internally and never re-issued. I'd remove duplicate `P-1003` entries before applying the constraint. A primary constraint would have blocked those duplicates from being inserted in the first place.
 
 ## 5. Integrity defects — proven, with production impact
 
@@ -279,4 +279,3 @@ The join loses multi-part jobs and duplicates other jobs, producing unreliable m
 ## 6. Summary — what the audit found
 
 The audit found that the legacy database has missing entities, unenforced relationships, duplicate part numbers, incorrectly typed data, and invalid dates. The corrected model should contain five entities; `Machine`, `Technician`, `MaintenanceJob`, `Part`, and the `JobPart` junction table, with primary keys, foreign keys, and appropriate constraints. These changes would make relationships reliable and prevent invalid or duplicate records from entering the database. Without them, maintenance reports can omit jobs, double-count parts, and calculate costs incorrectly, leading to poor operational and purchasing decisions.
-
