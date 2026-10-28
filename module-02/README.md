@@ -16,7 +16,7 @@ By the end of this module, I can:
 
 ## What I plan to explore
 
-Module 1 ended with me designing a schema from scratch for telemetry I had generated myself. This module runs the opposite direction, inheriting a schema somebody else built and working out what it was meant to mean. The connection I want to chase is that my production line simulator lost its data because it never persisted anything, while Kortmann's plant has the opposite problem: fifteen years of maintenance history kept in a form nobody can query. What I actually want to find out is whether I would have caught these defects in a schema I had designed myself, or whether it takes inheriting someone else's mess to see them.
+While Module 1 involved designing a schema from scratch for my own telemetry, this module goes in reverse: figuring out the meaning behind a pre-built schema from someone else. My simulator lost data because it lacked persistence, whereas Kortmann’s plant has the opposite issue—15 years of maintenance history trapped in a format nobody can query. Ultimately, I want to find out whether I would have caught these schema defects on my own, or if it takes dealing with someone else's mess to spot them.
 
 ## The scenario
 
