@@ -57,14 +57,11 @@ Four rows in each — including, deliberately, one duplicate part and one job re
 
 **Done**
 
+- [x] Task A — pod study → [`study-log.md`](./study-log.md) §1–§5
 - [x] Task B — four sketches from written descriptions + `CREATE TABLE`/`COUNT` proof → [`study-log.md`](./study-log.md) §6, [`task-b-proof.sql`](./task-b-proof.sql)
+- [x] Task C — pod-pair exchange → [`study-log.md`](./study-log.md) §7 (neighbouring pod's names still to add)
 - [x] Task 1 — reconstruct the ER model → [`er-audit.md`](./er-audit.md) §1–§4
 - [x] Task 2 — five integrity defects proven with queries → [`er-audit.md`](./er-audit.md) §5
-
-**Completed in class, write-up outstanding**
-
-- [ ] Task A — pod study done in session; §1 references written, §2 searches / §3 findings / §5 found sketches still to record
-- [ ] Task C — pod-pair exchange done in session; §7 "Agreed learning" and the Discord image link still to record
 
 **Outstanding**
 
