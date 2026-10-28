@@ -75,6 +75,16 @@
 
 **Where it was wrong / vague / over-confident: It wasn't.**
 
+### Prompt 4
+
+**Prompt:** Not mine — Aron asked ChatGPT to generate an ER diagram for a school system, and shared the result with the pod. I took it as a claim to check.
+
+**Answer (2–3 lines):** A Chen-notation ER diagram with School, Department, Program, Person, Staff, Teacher and Course, with cardinality labels on every relationship and underlined primary keys throughout.
+
+**How I verified it:** I checked each relationship's cardinality against what the entity names imply, and checked whether every entity was really a separate thing.
+
+**Where it was wrong / vague / over-confident:** Wrong in two places. `enrolls in` is labelled 1:N when student enrolment is many-to-many. And `Person`, `Staff` and `Teacher` are modelled as three independent entities when Staff and Teacher are roles a Person fills — an inheritance case, not three tables joined by relationships. The diagram is confident and well-drawn, which is what made the errors easy to miss.
+
 ---
 
 ## 5. Two best found ER sketches
@@ -85,13 +95,21 @@
 
 - **Source: [Master ER Diagram in DBMS: A Guide to Database Design & Management](https://www.upgrad.com/blog/er-diagram-in-dbms/)**
 - **Image:** ![UpGrad ER Diagram](UpGrad_ER_Diagram.avif)
-- **What it showed me that others did not: It helped me understand these database concepts easier by showing them as layers that build outward, starting with the core entities at the center, adding their details as attributes, and finally connecting them all together**
+- **What it showed me that others did not: This is not an ER diagram. It's a concept illustration, and its nested circles are arguably misleading, since relationships do not contain attributes and attributes do not contain entities. I include it because it is what made the three terms stick, not as an example of ER notation.**
 
 ### Sketch 2 — Aron's School System ER Diagram
 
-- **Source: Aron's ChatGPT**
-- **Image:** ![School System ER Diagram](School_System_ER_Diagram.png)
-- **What it showed me that others did not: This solidified my understanding of these concepts since it gave information on the relation between the entities.**
+- **Source:** Generated with ChatGPT by Aron (pod partner). I did not write the prompt.
+- **Image:** ![School System ER Diagram](./School_System_ER_Diagram.png)
+- **What it showed me that others did not:** This was my clearest example of **Chen notation** — rectangles for entities, diamonds for relationships, ovals for attributes, underlined primary keys, and 1/N labels on the relationship lines. The other diagrams I found used crow's-foot, where relationships are just lines, so seeing attributes hanging off a relationship-capable notation made the difference between the two styles concrete.
+
+It also turned out to be a good example for a second reason: **the notation is correct but the model is not.** Checking it against what I had learned, I found three problems:
+
+  1. `Person —1— enrolls in —N— Course` says one person enrols in many courses, but that each course holds only one person. Enrolment is many-to-many, so this needs a junction, exactly like `work_order_part` in my Task B sketch 6.3.
+  2. `Person`, `Staff` and `Teacher` are drawn as three separate entities with three separate IDs. A teacher is staff and staff are people — these are roles one person plays, which is EER generalization, not three things joined by relationships. As drawn, one human would need a `person_id`, a `staff_id` and a `teacher_id`.
+  3. `hire_date` appears on both `Staff` and `Teacher`, which is the duplication problem 2 causes.
+
+So the diagram taught me the notation and then demonstrated why you check a model against the rules rather than trusting that it looks professional.
 
 ---
 
