@@ -32,9 +32,9 @@ My job is to audit it, reconstruct the ER model it should have had, prove the de
 |---|---|
 | [`study-log.md`](./study-log.md) | Task A/B/C — references, searches, findings, LLM Q&A with verification, ER sketches, pod agreement |
 | [`setup-legacy.sql`](./setup-legacy.sql) | The flawed schema + seed rows, so a reviewer can rebuild `legacy.db` |
-| `er-audit.md` | Task 1 — entity list, reconstructed ER diagram, cardinalities proven by counts |
-| `contract.py` | Task 3 — Pydantic + SQLAlchemy data contract and the corrected DDL |
-| `reflection.md` | Logbook entry for this block |
+| [`er-audit.md`](./er-audit.md) | Task 1 — entity list, reconstructed ER diagram, cardinalities proven by counts |
+| [`contract.py`](./contract.py) | Task 3 — Pydantic + SQLAlchemy data contract and the corrected DDL |
+| [`reflection.md`](./reflection.md) | Logbook entry for this block |
 | `img/` | Sketches and diagram screenshots |
 
 ## Rebuilding the database
