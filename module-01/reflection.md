@@ -41,20 +41,13 @@ That one stuck with me because nothing failed; the output was just quietly incom
 
 ## 3. How did my mental model shift?
 
-I came into this module wanting to know whether "you don't need a server" survives
-contact with a dataset bigger than a toy, because my first real project was a
-production line simulator whose data lived in memory and vanished when the game
-closed.
+Before: I thought a “real” database was a separate program running on a server that my code connects to. And that SQLite was the beginner version I use before I do serious work.
 
-The measurement answered it more bluntly than I expected. 172,800 rows, queried in
-tens of milliseconds, with no daemon, no port, no connection string, and no network
-hop. I had assumed a "real" database meant a server, and that SQLite was the thing you
-used before you were serious. What actually distinguishes them is where the database
-engine runs — in my process, or in someone else's — and for a local application there
-is no reason to pay for the second one.
+After: both are real databases. The only difference is where the engine runs. SQLite runs inside my own program, as a library, with the data in one file. PostgreSQL runs as a separate process I connect to over a network. Neither is more serious than the other; they’re just in different places.
 
-The other shift was smaller but more practical: a tool can succeed and still not do
-what you asked. `.timer` with `.output` taught me that before any query did.
+What changed my mind: the measurement. 172,800 rows, queried in tens of milliseconds, with no server to start, no port, no connection string, no network hop. The “toy” handled it without effort. So for an app that runs on one machine, there’s no reason to pay for the second arrangement.
+
+The smaller second shift: a tool can succeed and still not do what you asked. The .timer thing taught me that before any query did.
 
 ## 4. How did I verify AI suggestions?
 
