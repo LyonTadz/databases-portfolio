@@ -55,15 +55,22 @@ Four rows in each — including, deliberately, one duplicate part and one job re
 
 ## Status
 
-- [ ] Task A — pod study → `study-log.md`
-- [ ] Task B — four sketches from written descriptions + one `CREATE TABLE`/`COUNT` proof
-- [ ] Task C — pod-pair exchange, agreed learning, Discord image
-- [ ] Task 1 — reconstruct the ER model → `er-audit.md`
-- [ ] Task 2 — prove five integrity defects with queries
-- [ ] Task 3 — data contract → `contract.py` + emitted DDL
-- [ ] Reflection
-- [ ] ◇ Task 4 — EER inheritance, two models + decision
-- [ ] ◇ Task 5 — Mermaid ER lab
+**Done**
+
+- [x] Task B — four sketches from written descriptions + `CREATE TABLE`/`COUNT` proof → [`study-log.md`](./study-log.md) §6, [`task-b-proof.sql`](./task-b-proof.sql)
+- [x] Task 1 — reconstruct the ER model → [`er-audit.md`](./er-audit.md) §1–§4
+- [x] Task 2 — five integrity defects proven with queries → [`er-audit.md`](./er-audit.md) §5
+
+**Completed in class, write-up outstanding**
+
+- [ ] Task A — pod study done in session; §1 references written, §2 searches / §3 findings / §5 found sketches still to record
+- [ ] Task C — pod-pair exchange done in session; §7 "Agreed learning" and the Discord image link still to record
+
+**Outstanding**
+
+- [ ] Task 3 — contract built and emitting DDL; model-vs-database note outstanding
+- [ ] Goal 5 — [`requirements-forgotten.md`](./requirements-forgotten.md) written; summary outstanding
+- [ ] `reflection.md` — logbook entry for this block
 
 ---
 
