@@ -248,4 +248,4 @@ erDiagram
 
 **Disagreement we left open:**
 
-**Image we posted in Discord:** _link_ — chosen because:
+**Image we posted in Discord:** [Aron's ER Diagram](https://discord.com/channels/1064132619735928932/1560197797364502559/1560207494683566152) — chosen because: We both understood entities, relations, and attributes better after seeing this. 
