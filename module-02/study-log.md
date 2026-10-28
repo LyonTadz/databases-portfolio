@@ -236,16 +236,23 @@ erDiagram
 
 > Task C. The 3–5 points both pods stand behind, what I learned from the other pod, and any disagreement we left open.
 
-**Pod we paired with:**
+**Pod we paired with:** I was not yet assigned to a Task Pod for this session, so I
+worked with Rayan and Aron. We then paired with a neighbouring pod for the exchange.
+<!-- TODO: add the names of the neighbouring pod members once I have them. -->
 
 **Agreed points:**
 
-1.
-2.
-3.
+1. **Entities** — what counts as a thing with independent existence, and where the
+   line falls between an entity and an attribute that merely describes one.
+2. **Relationships** — that a relationship is the link between entities, read in
+   both directions, and that the verb in a description is what signals one.
+3. **Cardinality** — how many instances relate to how many, and that it has to be
+   stated in both directions rather than assumed from one side.
 
-**What I changed in this log after the exchange:**
+**What I changed in this log after the exchange:** Nothing. The discussion confirmed
+the model my group had already arrived at rather than correcting it.
 
-**Disagreement we left open:**
+**Disagreement we left open:** None. Both pods converged on the same reading of
+entities, relationships and cardinality.
 
-**Image we posted in Discord:** [Aron's ER Diagram](https://discord.com/channels/1064132619735928932/1560197797364502559/1560207494683566152) — chosen because: We both understood entities, relations, and attributes better after seeing this. 
+**Image we posted in Discord:** [Aron's ER Diagram](https://discord.com/channels/1064132619735928932/1560197797364502559/1560207494683566152) — chosen because: We both understood entities, relations, and attributes better after seeing this.
