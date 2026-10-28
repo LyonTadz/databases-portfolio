@@ -31,7 +31,7 @@ survives contact with a dataset bigger than a toy.
 | 5 | `sql-island.md` | ✅ done |
 | 6 | `generate_telemetry.py`, `load_telemetry.py`, query results | ✅ done |
 | 7 | `llm-sql.md` — prompt, SQL, query plan, verification | not started |
-| — | `reflection.md` | not started |
+| — | `reflection.md` | ✅ done |
 
 ## Task 4 — most useful dot-command
 
