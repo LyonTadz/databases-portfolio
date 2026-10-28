@@ -130,5 +130,23 @@ backwards from a schema — which is what this module is actually teaching.
 
 ## 4. My summary
 
-<!-- Three or four sentences, your words. The useful framing for the checkpoint:
-     which of these would you fix first, and why that one? -->
+I would fix **R7 — quantity of a part used in a job** first, because it is the
+requirement Anke Reuter's original question actually depends on. She asked *"which
+parts did we replace on this machine in the last year, **and how often**"*, and the
+"how often" has nowhere to live in the current schema: a comma-separated list can
+name the parts but cannot count them. Every other repair could be made and her
+question would still be unanswerable.
+
+More generally, the §2 rules should be fixed before the §1 rules, even though the §1
+rules look more urgent. A rule in §1 is unenforced but *expressible* — a `CHECK`
+constraint can be added to a live table later, and the data to enforce it is already
+there. A rule in §2 cannot be stated at all, because the schema is missing the
+concept: there is no column for a quantity, no lifecycle state for a machine, no
+technician entity to attach a qualification to. Adding a concept means changing the
+schema and every query and application that touches it, and that cost grows every
+year the system stays in service. This one has been running since 2011.
+
+R1 is the clearest evidence for why unenforced rules are dangerous: no row in the
+current data violates it, which is exactly why nobody noticed it was never enforced.
+A rule that happens to hold looks identical to a rule the database guarantees, right
+up until the day it doesn't.
