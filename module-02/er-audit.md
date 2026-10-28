@@ -171,7 +171,7 @@ Instead of using `serial_no` as the primary key, I'd use a surrogate `machine_id
 
 **My answer and why:**
 
-I'd use `part_no` as the natural primary key. Because it's short, stable, and easy to shop floor technicians to read strait from shelf labels. And unlike machine serial numbers, part numbers are managed internally and never re-issued. I'd remove duplicate `P-1003` entries before applying the constraint. A primary constraint would have blocked those duplicates from being inserted in the first place.
+I'd use `part_no` as the natural primary key. Because it's short, stable, and easy to shop floor technicians to read straight from shelf labels. And unlike machine serial numbers, part numbers are managed internally and never re-issued. I'd remove duplicate `P-1003` entries before applying the constraint. A primary key constraint would have blocked those duplicates from being inserted in the first place.
 
 ## 5. Integrity defects — proven, with production impact
 
