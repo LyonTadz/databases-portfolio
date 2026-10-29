@@ -35,7 +35,7 @@ Honestly, I came in without a clear answer to this. My working guess, which I *e
 
 Author: Lyon Andres Dabu Tadeo
 
-My partner is Mahmoud Gaber, [Gaber's portfolio](https://github.com/Gaber259/Portifolio), and Mahmoud Agbo, [Agbo's portfolio](https://github.com/partner/iot-portfolio).
+My partner is Mahmoud Gaber, [Gaber's portfolio](https://github.com/Gaber259/Portifolio), and Mahmoud Agbo, [Agbo's portfolio](https://github.com/mahmoudhussein21/databases-portfolio.git).
 
 In my team for the final project, I also had the following members:
 - Placeholder, [portfolio link](https://github.com/partner/iot-portfolio)
