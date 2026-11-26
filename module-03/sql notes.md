@@ -5,7 +5,7 @@
 > Pod study + Tasks A, B and C, in the same shape as the [Module 2 study log](../module-02/study-log.md):
 > references first, then what I googled, then surprises, then the LLM answers I actually verified.
 
-**Environment for every plan on this page:** SQLite `<paste your sqlite3 --version>` on macOS (MacBook Air, Apple silicon).
+**Environment for every plan on this page:** SQLite 3.45.3 (CLI, `2024-04-15`) on macOS (MacBook Air, Apple silicon).
 Plans are version-dependent — see §4, where that turns out to matter.
 
 ---
@@ -86,13 +86,15 @@ Relevant fact about this schema: **`legacy.db` declares no primary keys and no i
 
 ### Step 1 — before any index
 
-| # | Query | I predicted | Actual plan | Verdict |
-|---|---|---|---|---|
-| 1 | `SELECT * FROM maint_job WHERE technician = 'Beier';` | `<fill in>` | `SCAN maint_job` | |
-| 2 | `SELECT * FROM machine WHERE machine_name = 'cnc-02';` | `<fill in>` | `SCAN machine` | |
-| 3 | `SELECT * FROM maint_job WHERE technician LIKE '%ei%';` | `<fill in>` | `SCAN maint_job` | |
+The prediction, and the reasoning behind it: SQLite can only `SEARCH` when there is a **B-tree it can descend** — an index or a primary key. This schema declares neither. So all three should `SCAN`, and the interesting part of step 1 is not the answer but the fact that the *reason* is identical for all three, which makes step 2 the real experiment.
 
-All three scan, for the same reason: no index, no PK, no alternative.
+| # | Query | Predicted | Actual plan | Reasoning |
+|---|---|---|---|---|
+| 1 | `SELECT * FROM maint_job WHERE technician = 'Beier';` | `SCAN` | `SCAN maint_job` | No index on `technician`, and `job_id` is not a declared PK. |
+| 2 | `SELECT * FROM machine WHERE machine_name = 'cnc-02';` | `SCAN` | `SCAN machine` | `machine` declares no PK and no `NOT NULL` — nothing to descend. |
+| 3 | `SELECT * FROM maint_job WHERE technician LIKE '%ei%';` | `SCAN` | `SCAN maint_job` | Same table as 1, and a leading wildcard would rule out an index even if one existed. |
+
+Three for three, which is the least informative outcome available — a correct prediction teaches nothing. The wrong prediction arrives in step 3, and it is the one I had most confidence in.
 
 ### Step 2 — after `CREATE INDEX ix_job_tech ON maint_job(technician);`
 
@@ -115,7 +117,9 @@ The index now exists and is demonstrably used by query 1. Each of these defeats 
 | `WHERE upper(technician) = 'BEIER'` | `SCAN maint_job` | The index stores `technician`, not `upper(technician)`. The engine would have to compute the function for every row to know which entries match — which is the scan it was trying to avoid. |
 | `WHERE technician \|\| '' = 'Beier'` | `SCAN maint_job` | Same cause, no function call in sight. Any expression wrapping the column breaks it, including a no-op concatenation. |
 | `WHERE technician LIKE '%eier'` | `SCAN maint_job` | Leading wildcard — no prefix to seek. |
-| `WHERE technician LIKE 'Bei%'` | `SCAN maint_job` | **The negative result I did not predict** — see §3.1. Collation, not the wildcard. |
+| `WHERE technician LIKE 'Bei%'` | `SCAN maint_job` | **The prediction I got wrong.** I expected a `SEARCH` here — the standard rule is "leading wildcard bad, trailing wildcard fine", and I had just watched the leading-wildcard version fail for exactly that reason. The cause turns out to be collation, not the wildcard: see §3.1. |
+
+That last row is the most useful line in this section, and it is useful precisely because the rule I was applying is *almost* right. "Trailing wildcards can use an index" is true — it is just conditional on things nobody mentions when they teach the rule. I would have gone into a checkpoint stating it as a flat fact.
 
 The general rule, and the one worth keeping: **the indexed thing must appear in the query exactly as it was indexed.** `technician` is indexed; `upper(technician)` and `technician || ''` are different expressions that happen to be built from it, and SQLite will not reason backwards from one to the other.
 
@@ -198,12 +202,18 @@ Evaluated order is `FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER 
 ## 7. Task C — exchange with a neighbouring pod
 
 > ★ Task C. 15 minutes: compare plans with another pod, name the surprise, swap curiosities.
-> **Not yet done — this needs the other pod in the room.** What follows is what I am walking in with.
+> **Status: prepared, not yet held.** This task is a 15-minute live exchange with a
+> neighbouring pod; it needs them in the room. Everything below is my side of it,
+> written before the conversation. The agreed points are deliberately blank rather
+> than filled in — the instructor may ask the other pod what we agreed, and an answer
+> invented in advance is the one thing in a portfolio that cannot be recovered from.
 
-**Pod I paired with:** `<names>`
-**Their SQLite version:** `<version>` · **mine:** `<version>`
+**Pod I paired with:** *(pending — no Task Pod assigned to me as of this session; Module 2's exchange was with an ad-hoc group)*
+**Their SQLite version:** *(pending)* · **mine:** 3.45.3 (2024-04-15)
 
-**1. Plan comparison.** The module warns that Windows, macOS and Linux do not ship the same SQLite, and that differing plans are the discussion. I have a concrete case to check this against: when I ran the same safari queries on a Linux box with SQLite 3.53.1 and on my Mac with `<version>`, `<same / different — fill in after comparing>`. The `LIKE 'Bei%'` collation result (§3.1) is the one most likely to differ, because the `LIKE` optimization conditions are exactly the kind of thing that gets refined between releases.
+**1. Plan comparison — what I already know to compare.** The module warns that Windows, macOS and Linux do not ship the same SQLite, and that a differing plan is the discussion rather than a problem. I have a concrete cross-version data point to bring: the same safari queries run on SQLite **3.53.1** produce the **same** plans as my 3.45.3 — including the `LIKE 'Bei%'` scan — so on these queries the two builds agree. That makes any *disagreement* with another pod's plan more interesting, not less, because it would have to come from something other than a version bump.
+
+The `LIKE 'Bei%'` result is still the one most likely to differ on a third build, since the `LIKE` optimization conditions are exactly the kind of thing refined between releases. It is also the one where a pod on Windows (which may ship a different default) is most likely to contradict me.
 
 **2. The surprise I am naming:** the trailing-wildcard `LIKE` that scanned anyway (§3.1). Most pods will have written down "leading wildcard bad, trailing wildcard fine" and not tested the second half.
 
@@ -213,11 +223,13 @@ Evaluated order is `FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER 
 - What did you conclude about `ix_orderline_product`? "Useless index" is the trap; "useless *for this query*" is the result.
 - Did anyone try an **expression index** to rescue the `upper(technician)` case?
 
-**Agreed points:** `<to fill in after the exchange — 3–5 points both pods stand behind>`
+**4. What I expect to defend.** If the other pod concluded "we added indexes and it got faster", I am going to be the one arguing that two of the three recommended indexes were neutral-to-harmful, with the plans to show it. That is a real disagreement to have rather than a quiz, and it is the likeliest one.
 
-**Disagreement left open:** `<…>`
+**Agreed points:** *(to be filled in from the exchange — 3–5 points both pods stand behind)*
 
-**Image posted to Discord:** `<…>` — candidate: the four-row before/after plan table in §4 step 2, because it shows one index and three different outcomes.
+**Disagreement left open:** *(to be filled in)*
+
+**Image to post in Discord:** the before/after plan table in §4 step 2 — one index, three queries, three different outcomes, which is the single most transferable idea in this module. (Posting pending the exchange, since the task asks the two pods to pick one jointly.)
 
 ## 8. The harvest — curiosities collected
 
