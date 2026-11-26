@@ -1,0 +1,299 @@
+==============================================================================
+0 · ENVIRONMENT
+==============================================================================
+python           3.13.18
+sqlite3 module   3.53.1
+sqlite3 CLI      not installed — every timing below is from this module, not from `.timer on`
+duckdb           2.0.1
+
+==============================================================================
+1 · ROUND 1 — FUNCTIONAL DEPENDENCIES IN THE FIVE-ROW EXTRACT
+==============================================================================
+
+-- does it hold in the data? (data cannot tell you WHY — that column is mine) 
+  holds                 job_id -> machine_id   domain
+  holds                 job_id -> technician   domain (modelling decision)
+  holds             machine_id -> site         domain
+  holds                part_no -> part_price   domain, with a caveat: no price history
+  holds       job_id + part_no -> machine_id   candidate key
+  holds       job_id + part_no -> part_price   candidate key
+  holds             machine_id -> technician   OBSERVED ONLY — accident of 5 rows
+  holds             technician -> machine_id   OBSERVED ONLY — same accident, reversed
+  holds             part_price -> part_no      OBSERVED ONLY — 3 distinct prices for 3 parts
+  holds             technician -> site         OBSERVED, VACUOUSLY — site has one value
+  holds                part_no -> site         OBSERVED, VACUOUSLY
+
+-- why 'site' makes every FD into it true ------------------------------------
+  distinct sites in the extract: 1
+  -> a single-valued column is determined by everything, including the empty set.
+
+-- candidate key check: is (job_id, part_no) minimal? ------------------------
+              job_id -> part_price : NOT unique  e.g. job_id=1 has 2 different prices
+             part_no -> part_price : unique
+    job_id + part_no -> part_price : unique
+
+==============================================================================
+2 · ROUND 2 — THE THREE ANOMALIES
+==============================================================================
+
+-- 2.1 update anomaly: move cnc-01 to Bielefeld ------------------------------
+  UPDATE … WHERE machine_id='cnc-01'          -> 3 rows touched for ONE fact about ONE machine
+  now the same update, interrupted after two rows:
+  UPDATE … AND job_id=1                       -> 2 rows
+  SELECT DISTINCT site WHERE machine_id='cnc-01' -> ['Bielefeld', 'Gütersloh']
+  one machine, two sites, no error raised.
+      (1, 'cnc-01', 'Bielefeld', 'tech-0', 'P-0001', 6.0)
+      (1, 'cnc-01', 'Bielefeld', 'tech-0', 'P-0002', 7.0)
+      (2, 'cnc-02', 'Gütersloh', 'tech-1', 'P-0001', 6.0)
+      (2, 'cnc-02', 'Gütersloh', 'tech-1', 'P-0003', 8.5)
+      (3, 'cnc-01', 'Gütersloh', 'tech-0', 'P-0003', 8.5)
+
+-- 2.2 insert anomaly: record a part no job has used -------------------------
+  INSERT INTO flat5(part_no, part_price) …     -> accepted: (None, None, None, None, 'P-0009', 12.0)
+  rows in table now: 6 | of which job_id IS NULL: 1
+  -> COUNT(*) is no longer 'parts used'. Every query needs job_id IS NOT NULL.
+
+-- 2.3 delete anomaly: delete the last job that used a part ------------------
+  P-0002 price before      : [7.0]
+  jobs using P-0002        : 1
+  DELETE FROM flat5 WHERE job_id=1            -> 2 rows deleted
+  P-0002 price after       : (no rows)
+  P-0002 exists anywhere   : 0
+  -> deleting a JOB destroyed a PART. No error, permanently less informed.
+
+==============================================================================
+3 · ROUND 3 — THE 200k BUILD AND THE 3NF DECOMPOSITION
+==============================================================================
+  rebuilt module-05/normalize.db from setup.sql in 0.68 s
+
+-- 3.1 the integrity check the module asks for -------------------------------
+  flat_rows = 200000   normalized_rows = 200000   LOSSLESS
+
+-- 3.2 what the decomposition produced ---------------------------------------
+  flat_jobpart      200000 rows
+  machine               50 rows
+  part                  10 rows
+  job                20000 rows
+  job_part          200000 rows
+  report_jobpart    200000 rows
+  distinct machines : 50
+  sites             : [('Bielefeld', 1), ('Gütersloh', 49)]
+  technicians       : 7
+  done_on           : ('2026-01-01', '2026-03-31', 90)
+
+-- 3.3 why `part` has 10 rows and not 40 -------------------------------------
+  the catalogue: ['P-0002', 'P-0003', 'P-0004', 'P-0005', 'P-0006', 'P-0007', 'P-0008', 'P-0009', 'P-0010', 'P-0011']
+  prices       : [6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0]
+  -> the inner counter k runs 1..10, so (k % 40) + 1 is just k + 1:
+     P-0002 .. P-0011, and the '% 40' never fires. Prices are 5 + k.
+
+-- 3.4 every FD claim re-tested against all 200,000 rows ---------------------
+  holds           job_id -> machine_id   (claimed: domain)
+  holds           job_id -> technician   (claimed: domain)
+  holds       machine_id -> site         (claimed: domain)
+  holds          part_no -> part_price   (claimed: domain)
+  VIOLATED    machine_id -> technician   (claimed: observed only in 5 rows)
+  VIOLATED    technician -> machine_id   (claimed: observed only in 5 rows)
+  holds       part_price -> part_no      (claimed: observed only in 5 rows)
+  -> two of the three 'observed only' FDs are violated at scale, as predicted.
+     part_price -> part_no SURVIVES, because the generator gave all ten parts
+     distinct prices. It is still not a domain fact: it holds by accident at
+     200,000 rows exactly as it did at 5. Volume did not settle the question.
+
+-- 3.5 PRAGMA foreign_keys — default, enforcement, and the silent no-op ------
+  PRAGMA foreign_keys (default)        : 0
+  dangling INSERT with the pragma off  : accepted
+  PRAGMA foreign_key_check reports     : 2 violations (one row dangling in two directions)
+  PRAGMA foreign_keys=ON, in autocommit: 1
+  dangling INSERT with the pragma on   : IntegrityError: FOREIGN KEY constraint failed
+  inside an open transaction, the same pragma reads back: 0 <- it did not take effect
+  and the dangling INSERT is accepted  : the pragma is a no-op in a transaction
+  does the decomposition still load with enforcement on? parents are inserted
+  before children in setup.sql, so yes — job_part rows: 200000
+
+-- 3.6 what SELECT DISTINCT is asserting: one job, one technician ------------
+  a second technician on job 1 -> DISTINCT would produce 2 job rows
+  INSERT INTO job SELECT DISTINCT …  -> IntegrityError: UNIQUE constraint failed: job.job_id
+  job rows after the failure: 0 <- the whole 20,000-row load rolls back, not just the bad row
+  the acceptance test that should run FIRST:
+    SELECT job_id, COUNT(DISTINCT technician) n FROM flat_jobpart GROUP BY job_id HAVING n > 1;
+  on this data it returns: 0 rows
+
+==============================================================================
+4 · ROUND 4 — PLANS AND EQUALITY (timings live in bench.py)
+==============================================================================
+  NO TIMINGS ON THIS PAGE. bench.py is the only harness that reports
+  milliseconds, and the reason is a result in itself: when I timed the same
+  two queries from inside this script — which rebuilds a 200k table and runs
+  dependency checks over it first — arm A's minimum moved from 75 ms to 95 ms
+  between two phases that do not touch arm A at all. The effect being measured
+  is 20 ms. Timing inside a process that is also doing other work measures the
+  other work. Run bench.py on its own; across three consecutive runs it gives
+  phase-1 ratios of 1.02-1.04, phase-2 of 1.46-1.48, and — after one ANALYZE —
+  0.73-0.75, i.e. the NORMALIZED design winning. See benchmark.md section 4.
+  What belongs here is everything that is NOT a clock reading:
+
+-- 4.1 the two designs return the same answer --------------------------------
+  rows: A=350  B=350
+  total cost: A=722610.0  B=722610.0
+  row-for-row identical: True
+  -> a like-for-like comparison of two designs, not of two questions.
+
+-- 4.2 the plans, with ix_report_machine present -----------------------------
+  A normalized:
+      SCAN jp
+      SEARCH j USING INTEGER PRIMARY KEY (rowid=?)
+      SEARCH m USING INDEX sqlite_autoindex_machine_1 (machine_id=?)
+      SEARCH p USING INDEX sqlite_autoindex_part_1 (part_no=?)
+      USE TEMP B-TREE FOR GROUP BY
+  B denormalized:
+      SCAN report_jobpart USING INDEX ix_report_machine
+      USE TEMP B-TREE FOR GROUP BY
+  note B: SCAN ... USING INDEX on a query with no WHERE on machine_id and no
+  ORDER BY. The index filters nothing; it walks all 200,000 entries and then
+  fetches every row by rowid. In a plan, SEARCH skips rows and SCAN does not.
+
+-- 4.3 the plan after dropping the index — the whole Round 4 finding ---------
+  B denormalized, no index:
+      SCAN report_jobpart
+      USE TEMP B-TREE FOR GROUP BY
+  same answer still: True  (350 rows, 722610.0)
+  index restored.
+
+-- 4.4 why the join is nearly free: the size of what A probes ----------------
+  job_part    200000 rows      3328.0 KB
+  job          20000 rows       640.0 KB
+  machine         50 rows         4.0 KB
+  part            10 rows         4.0 KB
+  the dimensions are 4 KB each and permanently in cache, so A's 600,000
+  B-tree probes cost almost nothing. The scan and the GROUP BY cost everything.
+
+==============================================================================
+5 · ROUND 5 — WHAT THE COPY COSTS ON WRITES AND ON DISK
+==============================================================================
+
+-- 5.1 one machine changes site — rows touched -------------------------------
+  cnc-02 appears in: machine 1 row | job 400 rows | report_jobpart 4000 rows
+  UPDATE machine        SET site=…       1 rows   min    0.02 ms   median    0.02 ms   (9 runs, each rolled back)
+  UPDATE report_jobpart SET site=…    4000 rows   min    3.89 ms   median    3.94 ms   (9 runs, each rolled back)
+  ratio: 4000x the rows, 204x the time
+  the row count is the number that scales; the milliseconds are this machine.
+  (all rolled back — the database is left exactly as setup.sql built it)
+
+-- 5.2 storage, per object, from dbstat --------------------------------------
+  flat_jobpart                     11890688 bytes     11612.0 KB
+  report_jobpart                   11091968 bytes     10832.0 KB
+  sqlite_autoindex_job_part_1       4087808 bytes      3992.0 KB
+  job_part                          3407872 bytes      3328.0 KB
+  ix_report_machine                 2990080 bytes      2920.0 KB
+  ix_flat_machine                   2990080 bytes      2920.0 KB
+  job                                655360 bytes       640.0 KB
+  sqlite_schema                        4096 bytes         4.0 KB
+  sqlite_autoindex_part_1              4096 bytes         4.0 KB
+  sqlite_autoindex_machine_1           4096 bytes         4.0 KB
+  part                                 4096 bytes         4.0 KB
+  machine                              4096 bytes         4.0 KB
+
+-- 5.3 the comparison the module asks for, and the one it leaves out ---------
+  the module's query names tables only:
+    normalized   (job+job_part+part+machine)         4071424 bytes    3976.0 KB
+    denormalized (report_jobpart)                   11091968 bytes   10832.0 KB   ratio 2.72x
+  but an index is storage too, and both designs have one:
+    normalized   + its implicit PK indexes           8167424 bytes    7976.0 KB
+    denormalized + ix_report_machine                14082048 bytes   13752.0 KB   ratio 1.72x
+  job_part's PRIMARY KEY (job_id, part_no) costs 3992.0 KB
+  on its own — more than the 3328.0 KB table it indexes, because the index
+  stores both columns and the table stores both columns plus a rowid.
+  whole database file: 35.4 MB (of which flat_jobpart + its index = 14.2 MB,
+  kept only so the build is reproducible — a production database would drop it)
+
+==============================================================================
+6 · ROUND 7 — HARVEST: THE CURIOSITIES, EACH WITH ITS EVIDENCE
+==============================================================================
+
+-- 6.1 money stored as TEXT: SUM is fine, MAX is wrong -----------------------
+  typeof(flat_jobpart.part_price) : text
+  typeof(part.part_price)         : real
+  SUM over TEXT                   : 2100000.0
+  SUM over REAL (same facts)      : 2100000.0
+  MAX over TEXT                   : 9.00   <- WRONG: string order, '9.00' > '15.00'
+  MAX over REAL                   : 15.0
+  ORDER BY the TEXT column        : ['10.00', '11.00', '12.00', '13.00', '14.00']
+  ORDER BY the REAL column        : [6.0, 7.0, 8.0, 9.0, 10.0]
+  -> aggregation coerced the text and gave the right total; comparison did not.
+
+-- 6.2 the CROSS JOIN that makes 200,000 rows out of two counters ------------
+  20000 jobs x 10 parts = 200000 | actual: 200000
+  every job uses every part, which is why job_part's composite PK never collides:
+    distinct (job_id, part_no) pairs: 200000
+
+-- 6.3 how much of the report table is duplicated bytes ----------------------
+  rows for one machine (cnc-02): 4000
+  distinct site values for it  : 1
+  -> one fact, stored 4,000 times. 3NF stores it once.
+
+==============================================================================
+6b · ROUND 6 — COST OF EACH STALENESS STRATEGY
+==============================================================================
+  (running on a throwaway copy; normalize.db is not touched)
+
+-- 6b.1 scheduled rebuild — how long a full rebuild of 200,000 rows takes ----
+  CREATE TABLE … AS SELECT (200,000 rows)  min    115 ms   median    118 ms
+  CREATE INDEX on the result               min     57 ms   median     58 ms
+  full rebuild from scratch                min    172 ms
+  -> against a dashboard that refreshes every 30 s, a full rebuild is a
+     0.57% duty cycle. The copy can simply be rebuilt.
+
+-- 6b.2 trigger-maintained copy — per-insert overhead ------------------------
+  without trigger    1.38 us per job_part insert (min of 5 batches of 300)
+  with trigger       3.92 us per job_part insert (min of 5 batches of 300)
+  overhead: 2.83x, i.e. 2.54 us per row
+  rows the trigger wrote: 300
+  -> cheap per insert. The problem is not the cost, it is the coverage:
+
+-- 6b.3 why one trigger is not enough — what the copy depends on -------------
+  report_jobpart denormalizes columns from FOUR tables:
+    job_part -> the fact itself      (INSERT / DELETE)
+    job      -> technician, done_on  (INSERT / UPDATE / DELETE)
+    machine  -> site                 (UPDATE)
+    part     -> part_price           (UPDATE)
+  so keeping it correct needs a trigger on each, for each DML verb that can
+  change a copied column. A trigger on job_part alone cannot see a site
+  change at all — Round 5 measured that update as 4,000 rows in the copy.
+  Module 4 found the matching failure directly: an AFTER INSERT trigger does
+  not fire on the ON CONFLICT DO UPDATE path, so a corrected row silently
+  skips maintenance. ~8 triggers to keep one copy fresh, against a sub-200 ms
+  rebuild (see 6b.1), is the whole argument for the rebuild.
+
+-- 6b.4 materialized views in SQLite -----------------------------------------
+  CREATE MATERIALIZED VIEW -> OperationalError: near "MATERIALIZED": syntax error
+  SQLite has plain views only: a VIEW re-runs its SELECT on every read, so it
+  is the normalized query with a nicer name — zero staleness, zero speed-up.
+  'Materialized view' in this module means 'a table you rebuild yourself'.
+  verification that the copy and the join agree, which any strategy needs:
+    report_jobpart EXCEPT the join -> 0 rows (in sync)
+
+  normalize-staleness.db removed. normalize.db is still 35.4 MB, as setup.sql built it.
+
+==============================================================================
+7 · STRETCHER — THE SAME QUERY IN DUCKDB
+==============================================================================
+  loaded via CSV, not ATTACH: duckdb's sqlite_scanner extension could not be
+  downloaded in my sandbox. `ATTACH '…/normalize.db' (TYPE sqlite)` is the
+  one-liner to use if your machine can reach extensions.duckdb.org.
+  duckdb 2.0.1, threads = 2
+  done_on arrived as: DATE — read_csv_auto inferred a real DATE, SQLite had TEXT
+  NOTE: both queries needed GROUP BY ... , site added for DuckDB:
+    SQLite accepts a bare non-aggregated column and picks a value;
+    DuckDB raises BinderException: column "site" must appear in the
+    GROUP BY clause. Safe here only because machine_id -> site.
+  duckdb A (4-way join)    min   8.86 ms   median   9.78 ms
+  duckdb B (1 table)       min   4.75 ms   median   4.95 ms
+  A / B in duckdb = 1.87x
+  rows 350, total 722610.0 — same answer as SQLite
+  threads=1: A min 11.58 ms, B min 6.92 ms, ratio 1.67x
+  -> the win is the engine, not the core count.
+
+==============================================================================
+END — normalize.db is 35.4 MB, exactly as setup.sql builds it
+==============================================================================
