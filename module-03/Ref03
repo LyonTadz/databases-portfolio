@@ -1,91 +1,76 @@
 # Reflection 3 — LLM-Assisted SQL & Query Profiling
 
 > Module 3 · Session 3 · [Module 3 portfolio page](../module-03/README.md)
->
-> **This one is yours to write, and it has to be.** The course template below asks
-> who helped you and what you struggled with — I cannot answer either, and the
-> instructor reads these to hear you rather than a summary of the module. Reflections
-> are 4 of the 20 points and this is the fastest one in the portfolio to earn:
-> ten minutes, no commands, no verification.
->
-> Prompts under each heading are scaffolding — delete them as you write over them.
 
 ## Take-away — what I want to remember, and my advice
 
-<!--
-  One or two things, not a summary of the module. Candidates from your own work,
-  if any of them is what actually stuck:
-  - "SEARCH" in a plan means the engine used an index, not that using it was a good
-    idea — the slowest plan I measured is made entirely of SEARCH lines.
-  - An index is not a property of a table. It is a relationship between a table and
-    a specific predicate.
-  - The LLM's query was fine. The LLM's *advice about the query* was wrong. Those are
-    different failure modes and only the plan told them apart.
-  Advice to someone starting this module: ?
--->
+**`SEARCH` in a query plan means the engine used an index, not that using it was a good idea.** The slowest plan I measured all module was made *entirely* of `SEARCH` lines — no `SCAN` anywhere — and it was four times slower than the plan it replaced. I went in reading `SCAN` as "bad" and `SEARCH` as "fixed", and that is simply not what the words mean. `SCAN` means every row was read; whether that is bad depends on how many rows you needed.
+
+The second thing, which I expect to be more useful long-term: **an index is not a property of a table.** It is a relationship between a table and a particular predicate. `ix_orderline_product` did nothing for the dashboard query and gave a 10× speedup on a query filtering `product_id` directly — same index, same table, same rows. "Useless index" was the wrong conclusion and "useless *for this query*" was the right one, and the difference between those two sentences is most of what I learned.
+
+**My advice to someone starting this module:** run `EXPLAIN QUERY PLAN` before you measure anything, and write the plan down even when it is boring. The plans that did not change are what let me tell a real improvement from noise — the dashboard got 18% faster with an index that provably did nothing, and without the before-plan I would have written that up as a win.
 
 ## What was good
 
-<!--
-  What actually worked. Did predicting before running change how you read the plans?
-  Was the one-command regeneration (evidence.py) worth setting up, or overkill?
--->
+Predicting before running changed how I read the output. When the prediction and the plan agreed I learned nothing, and when they disagreed I had to go find out why — which is how I ended up on SQLite's `LIKE` optimization conditions rather than just noting "it scanned" and moving on.
+
+Putting the measurements in a script (`bench.py`, then `evidence.py`) felt like overkill at the time and was the best decision I made. Re-running the whole benchmark after each index became one command, the numbers stayed comparable, and the script itself ended up being portfolio evidence. Doing it by hand in the shell would have produced numbers I could not defend.
 
 ## What was difficult, where I struggled
 
-<!--
-  Be concrete and honest — "where did you struggle" is a graded prompt and a vague
-  answer reads as nothing happened. Real candidates from this module, if they are true
-  for you:
-  - Getting back into the terminal after a month away; shell prompt vs sqlite> prompt.
-  - Two clones of the repo on the machine, and not knowing which one was live.
-  - Reading a four-table plan as a loop nest rather than a list.
-  - Explaining WHY an index made something slower, as opposed to observing that it did.
--->
+**The honest answer is that the hardest part was not SQL.** I came back to this module after a long gap and lost most of a session to environment problems before writing a single query:
+
+- I typed shell commands at the `sqlite>` prompt and could not work out why nothing happened. Two programs, two prompts, and I did not notice the prompt had changed.
+- I had **two clones** of my own portfolio repo on the machine, in `Documents/` and `Documents/GitHub/`, both behind the remote, and I did not know which one I had been pushing from.
+- I had also, at some earlier point, run commands from my home folder instead of inside the repo, so there were orphaned `module-01/`, `src/` and `uv-check.py` copies sitting in `~` that belonged to nothing.
+
+The lesson is unglamorous and I am writing it down anyway: **check `pwd` before running anything.** Every instruction in these modules assumes you are at the repository root, and none of them tell you that, because it is obvious to whoever wrote them.
+
+The genuinely difficult *technical* part was explaining **why** adding an index made a query slower, as opposed to observing that it did. The observation took one run of the benchmark. Working out that the second index made an orders-driven plan viable, which in turn activated the first index, which replaced one sequential 240,000-row read with ~243,000 scattered ones, took considerably longer and is the only part of this module I would not want to be asked about cold.
 
 ## Good or fun struggling / exploration
 
-<!--
-  The LIKE 'Bei%' result is a genuine rabbit hole if you went down it — the query
-  refuses the index, and the reason turns out to be collation rather than the
-  wildcard everybody talks about. Did you chase anything like that? Anything you
-  are still not sure about?
--->
+The `LIKE 'Bei%'` result was a proper rabbit hole and the best hour of the module. The rule everyone teaches is "leading wildcard can't use an index, trailing wildcard can" — and I had just watched `LIKE '%ei%'` scan for exactly that reason, so I was confident. Then `LIKE 'Bei%'` scanned too, with the index sitting right there.
+
+The cause turned out to have nothing to do with wildcards: SQLite's `LIKE` is case-insensitive for ASCII by default, a plain index is built with `BINARY` collation, and an index sorted `Bei…` before `bei…` cannot answer a case-insensitive prefix query. Two fixes, both of which I tested: `PRAGMA case_sensitive_like = ON`, or build the index `COLLATE NOCASE`. Either brings back a `SEARCH` — and the plan reveals it as a *range* scan, `(technician>? AND technician<?)`, because a prefix match is a range between `'Bei'` and `'Bej'`.
+
+What I like about this one is that the rule I was applying was almost right. It is conditional on things nobody mentions when teaching it, and I would have stated it as a flat fact in a checkpoint.
+
+**Still not sure about:** the `CO-ROUTINE (subquery-2)` lines in the window-function plan. I can see the query works and I cannot explain what a co-routine is doing there. Going on the list as an honest "I don't know what this does".
 
 ## Show stoppers — anything to raise with peers or instructors
 
-<!--
-  Task C is outstanding and needs a neighbouring pod. Module 2 §7 still has no
-  names in it either. Say so here — an open item named in a reflection reads as
-  tracking your own work; the same item unmentioned reads as not noticing.
--->
+**Task C is outstanding and I cannot do it alone.** It needs fifteen minutes with a neighbouring pod to compare plans and agree points. Module 2's §7 has the same gap — I never got the neighbouring pod's names.
+
+I have a specific reason to want this one done rather than written off: the module says plans differ across SQLite versions, and I have a concrete case to test it against. I observed the `LIKE 'Bei%'` collation behaviour on SQLite 3.53.1 as well as on my own 3.45.3, and the `LIKE` optimization conditions are exactly the kind of thing that gets refined between releases. If another pod on a different build gets a different plan for that query, that is the discussion the task is asking for, and I would rather have it than fabricate agreement.
 
 ## Interaction with peers and instructors
 
-<!--
-  Who you worked with this session. Rayan and Aron were your Module 2 group —
-  was it the same people, has a Task Pod been assigned since?
--->
+<!-- One or two sentences. Who did you actually work with this session? Has a Task
+     Pod been assigned since Module 2, or is it still the ad-hoc group? -->
 
 ## Help and extra work
+
+<!-- Factual — I can't fill these in for you. One line each is fine, and "nobody,
+     I worked alone this session" is a legitimate answer to the first two. -->
 
 - **Who helped me, and was it valuable:**
 - **Who I helped, or gave feedback to:**
 - **Did I present, implement, make a PR, or fix something crucial for the class:**
 
-## AI verification — explicitly required for this module
+## AI verification
 
-<!--
-  The module checklist asks this reflection to address AI verification directly.
-  This is the one section where you have concrete material and should name specifics:
-  - What did the model get right? (The dashboard query itself was correct — DISTINCT
-    correctly placed, date range a proper half-open interval.)
-  - What did it get wrong? (All three index recommendations, for the query it was
-    asked about. The LIKE rule, at its boundary. The row count of the subquery rewrite.)
-  - What is the habit you are taking forward — what would you now check before
-    pasting generated SQL into anything?
-  Write it as what you concluded, not as a list of findings.
--->
+This is the module where I stopped treating "the LLM wrote it and it ran" as two pieces of evidence. It is one piece, and it is the weakest one available.
+
+**What the model got right:** the dashboard query itself. Four-table join, correct `COUNT(DISTINCT)`, and a proper half-open date range (`>= '2025-01-01' AND < '2026-01-01'`) rather than `date(ordered_on)` or `strftime`, either of which would have wrapped the column and ruled out any index on it. That is a better query than I would have written unaided, and the `DISTINCT` is load-bearing — without it the customer count comes back as ~40,000 per city instead of 500, an 81× error that still looks plausible in a dashboard.
+
+**What it got wrong:** everything it said *about* the query.
+
+- Asked which indexes to add, it named three. Tested one at a time, one left the plan untouched, one made the query ~4× slower, and one was never used by that query at all. Taking the list on trust would have left me with a slower dashboard, three indexes to maintain, and slower writes — while believing I had optimized something.
+- Asked about `LIKE` and indexes, it gave the right rule with the wrong boundary — correct that a leading wildcard prevents index use, wrong that a trailing one permits it.
+- Asked to rewrite the late-orders report with a correlated subquery, it produced one that returns **2,000 rows where the original returns 400**, and did not mention it. That is the more serious miss. A timing regression shows up in testing; a silently different report does not. It is the Frachtflow failure exactly — the wrong list of late orders, returned for a month, by a query that ran fine.
+
+**The habit I am taking forward:** the model is good at producing SQL and bad at reasoning about what the engine will do with it, and those two abilities look identical in the output. So the check is not "does this look right" but "what does the plan say, and did it change". Before any generated query goes anywhere, it gets `EXPLAIN QUERY PLAN` run on it and the plan gets read — and if the model offered advice about performance alongside the query, that advice gets tested one change at a time, never as a batch. A batch of three indexes would have hidden which one caused the regression.
 
 ---
 
