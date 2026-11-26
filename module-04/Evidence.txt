@@ -1,0 +1,268 @@
+Module 4 evidence — generated against SQLite 3.53.1
+Regenerate: uv run python module-04/evidence.py > module-04/evidence.txt
+
+==============================================================================
+§1  An unconstrained table accepts anything (Task A acceptance test)
+==============================================================================
+  rowid | sensor_id (type) | metric | value (type)
+      1 |        1 (integer) | 'temp_c' |     9000.0 (real)
+      2 |        1 (integer) | 'temp_c' |      'hot' (text)
+      3 |        2 (integer) |  'bogus' |     -500.0 (real)
+      4 |     None (   null) |     None |       None (null)
+      5 |      'x' (   text) | 'temp_c' |     9000.0 (real)
+      6 |        1 (integer) | 'temp_c' |        inf (real)
+      7 |      2.7 (   real) | 'temp_c' |        1.0 (real)
+      8 |        1 (integer) | 'temp_c' | b'\x00\x01' (blob)
+  rows accepted: 8 of 8 — nothing complained
+
+==============================================================================
+§2  CHECK and NULL
+==============================================================================
+  ok       INSERT INTO n VALUES (?)   -- None
+  ok       INSERT INTO n VALUES (?)   -- 40.0
+  REJECTED INSERT INTO n VALUES (?)   -- 9000.0
+           IntegrityError: CHECK constraint failed: v BETWEEN -273.15 AND 5000
+  CHECK yields UNKNOWN for NULL, and only FALSE rejects a row.
+
+==============================================================================
+§2b  The same eight rows against the table I would actually ship
+==============================================================================
+  REJECTED INSERT INTO t_strict VALUES (1,'temp_c',9000)
+           IntegrityError: CHECK constraint failed: value BETWEEN -273.15 AND 5000
+  REJECTED INSERT INTO t_strict VALUES (1,'temp_c','hot')
+           IntegrityError: cannot store TEXT value in REAL column t_strict.value
+  REJECTED INSERT INTO t_strict VALUES (2,'bogus',-500)
+           IntegrityError: CHECK constraint failed: metric IN ('temp_c','vib_rms','spindle_load')
+  REJECTED INSERT INTO t_strict VALUES (NULL,NULL,NULL)
+           IntegrityError: NOT NULL constraint failed: t_strict.sensor_id
+  REJECTED INSERT INTO t_strict VALUES ('x','temp_c','9000')
+           IntegrityError: cannot store TEXT value in INTEGER column t_strict.sensor_id
+  REJECTED INSERT INTO t_strict VALUES (1,'temp_c',9e999)
+           IntegrityError: CHECK constraint failed: value BETWEEN -273.15 AND 5000
+  REJECTED INSERT INTO t_strict VALUES (2.7,'temp_c',1)
+           IntegrityError: cannot store REAL value in INTEGER column t_strict.sensor_id
+  REJECTED INSERT INTO t_strict VALUES (1,'temp_c',X'0001')
+           IntegrityError: cannot store BLOB value in REAL column t_strict.value
+  ok       INSERT INTO t_strict VALUES (1,'temp_c',41.5)
+  REJECTED INSERT INTO t_strict VALUES (1,'temp_c',42.0)
+           IntegrityError: UNIQUE constraint failed: t_strict.sensor_id, t_strict.metric
+  ok       INSERT INTO t_strict VALUES (2.0,'vib_rms',1.2)
+  accepted: 2 of 11
+  -> 2.7 into INTEGER is refused but 2.0 is accepted: the rule is losslessness,
+     not textual form. Same rule that lets '41.5' into a REAL column (§3).
+
+==============================================================================
+§2c  What infinity does once it is in the table
+==============================================================================
+  ok       INSERT INTO inf_demo VALUES (9e999)
+           -> STRICT accepts inf: it is a valid REAL
+  ok       INSERT INTO inf_demo VALUES (41.5)
+  typeof: [(inf, 'real')]
+  SUM, AVG, MAX, MIN over (inf, 41.5): (inf, inf, inf, 41.5)
+  -> one loose sensor poisons every aggregate except MIN. Only the CHECK stops it.
+
+==============================================================================
+§3  STRICT is weaker than its name: lossless text→REAL conversion
+==============================================================================
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:00','hot',1)
+           IntegrityError: cannot store TEXT value in REAL column reading.value
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:01','41.5',1)
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:02',' 41.5 ',1)
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:03','4e1',1)
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:04','41.5abc',1)
+           IntegrityError: cannot store TEXT value in REAL column reading.value
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:05',X'41',1)
+           IntegrityError: cannot store BLOB value in REAL column reading.value
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 07:00:06',NULL,1)
+           IntegrityError: NOT NULL constraint failed: reading.value
+  what actually landed:
+    2026-03-01 07:00:01      41.5  stored as real
+    2026-03-01 07:00:02      41.5  stored as real
+    2026-03-01 07:00:03      40.0  stored as real
+
+==============================================================================
+§4  Task 1 — the five constraint rejections, plus three of my own
+==============================================================================
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 08:00:00',41.5,1)
+           -> generated column: [(41.5, 1, 41.5)]
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 08:00:01',9000,1)
+           IntegrityError: CHECK constraint failed: value >= -273.15 AND value <= 5000
+           -> semantic / domain integrity
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 08:00:02','hot',1)
+           IntegrityError: cannot store TEXT value in REAL column reading.value
+           -> STRICT typing
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (99,'2026-03-01 08:00:03',40,1)
+           IntegrityError: FOREIGN KEY constraint failed
+           -> referential integrity
+  REJECTED INSERT INTO sensor VALUES (3,'cnc-01','temp_c','degC')
+           IntegrityError: UNIQUE constraint failed: sensor.machine_id, sensor.metric
+           -> entity integrity
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 08:00:04',40,0)
+           IntegrityError: CHECK constraint failed: interval_s > 0
+           -> mine: interval_s > 0
+  REJECTED INSERT INTO sensor VALUES (4,'cnc-02','humidity','%')
+           IntegrityError: CHECK constraint failed: metric IN ('temp_c','vib_rms','spindle_load')
+           -> mine: metric not in the enumeration
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s,energy_j) VALUES (1,'2026-03-01 08:00:05',40,1,9…
+           OperationalError: cannot INSERT into generated column "energy_j"
+           -> mine: a generated column is not writable
+
+==============================================================================
+§5  PRAGMA foreign_keys is per connection and OFF by default
+==============================================================================
+  new connection, PRAGMA foreign_keys = 0
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (99,'2026-03-01 08:30:00',40,1)
+           -> orphan accepted — no sensor 99 exists
+  orphan rows now present: 1
+  PRAGMA foreign_key_check: [('reading', 1, 'sensor', 0)]
+  after switching it ON, foreign_key_check still: [('reading', 1, 'sensor', 0)]
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (98,'2026-03-01 08:31:00',40,1)
+           IntegrityError: FOREIGN KEY constraint failed
+           -> new orphans are refused, but the existing one is never revisited
+
+==============================================================================
+§6  Task 2 — UPSERT, and which triggers each path fires
+==============================================================================
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 08:00:00',41.7,1)
+           IntegrityError: UNIQUE constraint failed: reading.sensor_id, reading.ts
+           -> a plain replay collides with ux_reading_sensor_ts
+  after UPSERT: [(1, '2026-03-01 08:00:00', 41.7)]
+  rows for that key: 1  <- still 1
+  audit rows: [(1, 1, 41.5, 41.7)]
+  -> DO UPDATE fires AFTER UPDATE OF value, so the replay was audited.
+  does DO UPDATE fire the AFTER INSERT alarm trigger?
+    value=1.5: reading=1.5  alarms=0
+    value=3.4: reading=3.4  alarms=0
+  -> NO. A correction that crosses the threshold on the update path never alarms.
+
+==============================================================================
+§7  Task 3 — the triggers firing as designed
+==============================================================================
+  alarm: [(1, 2, '2026-03-01 09:00:00', 2.7, 'vibration over 2.0 mm/s')]
+  audit: [(1, 1, 2.7, 1.4)]
+  alarm count after the UPDATE: 1
+
+==============================================================================
+§8  Statement atomicity — one bad row reverts the whole statement
+==============================================================================
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'2026-03-01 13:00:00',40,1),(1,'2026-…
+           IntegrityError: CHECK constraint failed: value >= -273.15 AND value <= 5000
+  rows stored: 0  <- 0: the good row went too
+
+==============================================================================
+§9  Task 5 — BEFORE INSERT, and the phantom alarm
+==============================================================================
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (2,'2026-03-01 10:00:00',2.7,1)
+  alarm written by the BEFORE trigger: [('BEFORE: NEW.reading_id=-1 NEW.energy_j=2.7',)]
+  the row it describes:                [(1, 2.7)]
+  -> NEW.reading_id is -1 in a BEFORE trigger: the key is not assigned yet.
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (2,'2026-03-01 10:00:01',9000,1)
+           IntegrityError: CHECK constraint failed: value >= -273.15 AND value <= 5000
+           -> alarms first, then fails the domain CHECK
+  alarms after the failed insert: 1  readings: 1   <- ABORT reverted the trigger too
+  ok       INSERT OR IGNORE INTO reading(sensor_id,ts,value,interval_s) VALUES (2,'2026-03-01 10:00:02',9000,…
+           -> OR IGNORE swallows the violation and the statement 'succeeds'
+  alarms: 2  readings: 1
+  the phantom: [(2, 9000.0, 'BEFORE: NEW.reading_id=-1 NEW.energy_j=9000.0')]
+  -> an alarm at 9000 mm/s about a reading the database refused to store.
+
+==============================================================================
+§10  Task 5 — a BEFORE trigger can reject; an AFTER trigger cannot
+==============================================================================
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (2,'2026-03-01 10:02:00',2.7,1)
+           IntegrityError: vibration over limit: row refused, not merely alarmed
+
+==============================================================================
+§11  Task 4 — access control without a server
+==============================================================================
+  machine_health view: [('cnc-01', 'temp_c', 41.5, 1), ('cnc-01', 'vib_rms', 2.4, 1)]
+  mode=ro SELECT: 2 rows
+  REJECTED DELETE FROM reading
+           OperationalError: attempt to write a readonly database
+  the same reader can also read every base table and the whole schema:
+    reading   : [(1, 1, 41.5), (2, 2, 2.4)]
+    alarm     : 1 rows
+    schema    : ['sensor', 'reading', 'alarm', 'audit', 'machine_health']
+  -> the view is a convenience, not a boundary: there is no GRANT to revoke.
+  REJECTED DELETE FROM reading
+           OperationalError: attempt to write a readonly database
+           -> PRAGMA query_only is advisory: the holder can switch it off again
+  ok       DELETE FROM reading
+           -> …and here it is, switched off
+  REJECTED INSERT INTO machine_health VALUES ('cnc-09','temp_c',1,1)
+           OperationalError: cannot modify machine_health because it is a view
+           -> a plain view is not writable at all
+
+==============================================================================
+§12  The two schema gaps from constraints.md §6, and fixes that close them
+==============================================================================
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (2,'2026-03-01 09:00:00',4000,1)
+           -> gap 1: 4,000 mm/s of vibration passes the shared range CHECK
+  …and it raised an alarm: [(4000.0, 'vibration over 2.0 mm/s')]
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (1,'yesterday',41.5,1)
+           -> gap 2: ts is TEXT NOT NULL and nothing else
+
+  fix for gap 2 — CHECK the shape of ts with GLOB:
+  ok       INSERT INTO r VALUES (?)   -- '2026-03-01 08:00:00'
+  REJECTED INSERT INTO r VALUES (?)   -- 'yesterday'
+           IntegrityError: CHECK constraint failed: ts GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]'
+  REJECTED INSERT INTO r VALUES (?)   -- '2026-3-1 8:00:00'
+           IntegrityError: CHECK constraint failed: ts GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]'
+  REJECTED INSERT INTO r VALUES (?)   -- '2026-03-01T08:00:00'
+           IntegrityError: CHECK constraint failed: ts GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]'
+  ok       INSERT INTO r VALUES (?)   -- '2026-13-45 99:99:99'
+  -> GLOB constrains the shape, not the calendar: 2026-13-45 99:99:99 is 'well-formed'.
+     A real date check needs strftime(), or a trigger.
+
+  fix for gap 1 — a BEFORE trigger reaching into sensor for a per-metric range:
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (?,?,?,1)   -- 1, '2026-03-01 11:00:41',…
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (?,?,?,1)   -- 1, '2026-03-01 11:00:40',…
+           IntegrityError: value out of range for this metric
+  ok       INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (?,?,?,1)   -- 2, '2026-03-01 12:00:01',…
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (?,?,?,1)   -- 2, '2026-03-01 12:00:40',…
+           IntegrityError: value out of range for this metric
+  REJECTED INSERT INTO reading(sensor_id,ts,value,interval_s) VALUES (?,?,?,1)   -- 2, '2026-03-01 12:00:01',…
+           IntegrityError: value out of range for this metric
+  -> a trigger can do what a CHECK cannot: read another table.
+
+==============================================================================
+§13  Task 2 — the audit table is not idempotent, and two fixes that make it so
+==============================================================================
+  arm                                                 run 1              run 2              run 3   non-changes
+                                              reading/audit      reading/audit      reading/audit
+  --------------------------------------------------------------------------------------------------
+  as shipped                                   1,000/15           1,000/1,030        1,000/2,045     2,030
+  fix A — WHERE on the UPSERT                  1,000/3            1,000/9            1,000/15            0
+  fix B — WHEN on the trigger                  1,000/3            1,000/9            1,000/15            0
+  both fixes                                   1,000/3            1,000/9            1,000/15            0
+  -> 'as shipped' writes 1,015 audit rows per replay, almost all recording a non-change.
+     Both fixes reduce that to 6, and combining them adds nothing: same fix, two layers.
+     The residual 6/run is the test file itself holding two values for three keys.
+
+==============================================================================
+§14  Task 2 — the alarm hole: a correction that never alarms
+==============================================================================
+  plain UPSERT stored value 3.4 (> 2.0 threshold), alarms = 0
+  fix A        stored value 3.4 (> 2.0 threshold), alarms = 0
+  -> neither fix closes it: the alarm trigger is AFTER INSERT and this took DO UPDATE.
+  an AFTER UPDATE companion trigger does close it, without duplicating on further replays:
+    ingest value 1.5: alarms = 0
+    ingest value 3.4: alarms = 1
+    ingest value 3.4: alarms = 1
+    ingest value 4.0: alarms = 1
+    [(3.4, 'vibration over 2.0 mm/s (on correction)')]
+  -> OLD.value <= 2.0 makes it edge-triggered: it fires on the crossing, not on every replay above the line.
+
+==============================================================================
+§15  Task 4 — chmod 444 at the file level
+==============================================================================
+  file mode: 444    euid: 0
+  running as root, which ignores file permissions — dropping privileges to test
+  (child euid 65534)
+  SELECT: 1 row(s)
+  DELETE: OperationalError: attempt to write a readonly database
+  -> reads work, writes do not — and unlike PRAGMA query_only the holder of
+     the connection cannot lift it: that needs permission on the file.
+
+==============================================================================
+end of evidence
