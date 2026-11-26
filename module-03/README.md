@@ -14,9 +14,21 @@ By the end of this module, I can:
 4. Generate a query with an **LLM**, then verify it: correctness, performance, and edge cases.
 5. **Prevent SQL injection** with bound parameters, and demonstrate why string concatenation is exploitable.
 
+### Where each goal is proven
+
+| Goal | Evidence |
+|---|---|
+| 1 — complex DQL | [`llm-query.md`](./llm-query.md) (4-table join + `GROUP BY` + `COUNT(DISTINCT)`), [`stretcher.md`](./stretcher.md) (correlated subquery and window function) |
+| 2 — read a plan | [`sql-notes.md`](./sql-notes.md) §4 — the same index used by one query and ignored by three others, with the reason for each |
+| 3 — benchmark an index | [`bench.md`](./bench.md) — before/after table, including an index that made the query **4× slower** |
+| 4 — verify an LLM | [`llm-query.md`](./llm-query.md) §4 and [`sql-notes.md`](./sql-notes.md) §6 — four model claims tested, two wrong |
+| 5 — prevent injection | [`injection.md`](./injection.md) + [`injection_demo.py`](./injection_demo.py) |
+
 ## What I plan to explore
 
-<!-- your own paragraph — see note below -->
+Module 2 was someone else's mistake — a schema built badly in 2011 and left alone. The defects were ugly but they were *visible* once you went looking: text where a foreign key should be, a comma-separated list in a column. This module is the opposite problem. The SQL an LLM writes looks correct, and it mostly is correct, so there is nothing obvious to find by reading it.
+
+What I actually want to find out is whether I can tell the difference between a query that is right and a query that merely runs — and whether the model's confidence tracks its accuracy at all. My instinct going in is that I will be able to check the *query* and will have no way of checking the *advice about the query*, which is the part I would otherwise take on trust.
 
 ## The scenario
 
@@ -29,42 +41,66 @@ Both failures have the same root: nobody profiled or parameterized the generated
 | File | What it holds |
 |---|---|
 | [`setup.sql`](./setup.sql) | Builds `warehouse.db` — 2,000 customers, 500 products, 60,000 orders, 240,000 order lines |
-| [`sql-notes.md`](./sql-notes.md) | Tasks A/B/C — plan safari predictions vs. reality, algebra check, pod swap, curiosity harvest |
-| [`llm-query.md`](./llm-query.md) | Task 1 — the prompt, the LLM's SQL, my predicted plan, the actual plan, correctness verdict |
-| [`bench.py`](./bench.py) · [`bench.md`](./bench.md) | Task 2 — index benchmark: median of 3 runs per cell, plans before and after |
-| [`injection_demo.py`](./injection_demo.py) | Task 3 — the injection drill and the escaping-vs-parameterizing answer |
+| [`sql-notes.md`](./sql-notes.md) | Pod study + Tasks A/B/C — references, surprises, the plan safari, the algebra check, the curiosity harvest |
+| [`llm-query.md`](./llm-query.md) | Task 1 — the prompt, the LLM's SQL, the predicted plan, the actual plan, the correctness verdict |
+| [`bench.py`](./bench.py) · [`bench.md`](./bench.md) | Task 2 — index benchmark: median of 5 runs per cell, plans before and after, with the negative results |
+| [`injection_demo.py`](./injection_demo.py) · [`injection.md`](./injection.md) | Task 3 — the injection drill and the escaping-vs-parameterizing answer |
+| [`stretcher.md`](./stretcher.md) | Task 5 — correlated subquery and window-function rewrites, compared on plan and clock |
+| [`evidence.py`](./evidence.py) · [`evidence.txt`](./evidence.txt) | Every plan and timing on these pages, regenerated in one command on this machine |
 
-## Rebuilding the database
+## Rebuilding and reproducing
 
-`warehouse.db` is **not** committed — `.gitignore` keeps `*.db` out. Rebuild it from the repo root:
+`warehouse.db` is **not** committed — `.gitignore` keeps `*.db` out. From the repository root:
 
 ```sh
 sqlite3 module-03/warehouse.db ".read module-03/setup.sql"
-```
-
-Check it loaded:
-
-```sh
 sqlite3 module-03/warehouse.db "SELECT 'orders', COUNT(*) FROM orders UNION ALL SELECT 'lines', COUNT(*) FROM order_line;"
 ```
 
 Expected: `60000` orders and `240000` lines. Lower means the script stopped early — delete the file and run it again.
 
-Task A also uses `module-02/legacy.db`; rebuild instructions are in [Module 2](../module-02/README.md#rebuilding-the-database).
+Task A also needs `module-02/legacy.db`:
 
-**SQLite version used for every plan on this page:** `<paste sqlite3 --version here>`
+```sh
+sqlite3 module-02/legacy.db ".read module-02/setup-legacy.sql"
+```
+
+Then regenerate every plan and timing quoted in these notes:
+
+```sh
+uv run python module-03/evidence.py > module-03/evidence.txt
+uv run python module-03/bench.py
+```
+
+**SQLite version used for every plan on these pages:** `3.45.3 (2024-04-15)`
+
+Plans are version-dependent, which is the point of Task C — see [`sql-notes.md`](./sql-notes.md) §7.
+
+## Headline findings
+
+- **An index made the dashboard query ~4× slower.** `ix_orderline_order` flipped a scan-driven aggregate into an index-driven nested loop. Every line of the slower plan is a `SEARCH`. ([`bench.md`](./bench.md) §3)
+- **A trailing-wildcard `LIKE 'Bei%'` still scanned**, with the index in place. The cause is collation, not the wildcard — SQLite's `LIKE` is case-insensitive by default and a `BINARY` index cannot serve it. ([`sql-notes.md`](./sql-notes.md) §3.1)
+- **Of the three indexes the LLM recommended, none helped the query it was asked about.** One was neutral, one was harmful, one was never used. ([`bench.md`](./bench.md) §6)
+- **A "rewrite" changed the answer.** The correlated-subquery version of the late-orders report returns 2,000 rows where the `GROUP BY` returns 400 — and the model did not mention it. ([`stretcher.md`](./stretcher.md))
 
 ## Status
 
-- [ ] Task A — plan safari (predict, run, index, break it) → `sql-notes.md`
-- [ ] Task B — algebra check → `sql-notes.md`
-- [ ] Task C — compare plans with a neighbouring pod → `sql-notes.md`
-- [ ] Task 1 — LLM query + plan verification → `llm-query.md`
-- [ ] Task 2 — index benchmark, including the negative result → `bench.md`
-- [ ] Task 3 — injection drill → `injection_demo.py`
-- [ ] Task 4 — one query from algebra to plan
-- [ ] Task 5 (stretcher) — window function rewrite
-- [ ] [`Reflections/ref03.md`](../Reflections/ref03.md)
+**Done**
+
+- [x] Task A — plan safari: predict, run, index, break it → [`sql-notes.md`](./sql-notes.md) §4
+- [x] Task B — algebra check, including where the LLM's translation differed → [`sql-notes.md`](./sql-notes.md) §5
+- [x] Task 1 — LLM query, predicted plan, actual plan, correctness verdict → [`llm-query.md`](./llm-query.md)
+- [x] Task 2 — index benchmark with both negative results → [`bench.md`](./bench.md) · [`bench.py`](./bench.py)
+- [x] Task 3 — injection drill + escaping-vs-parameterizing answer → [`injection.md`](./injection.md) · [`injection_demo.py`](./injection_demo.py)
+- [x] Task 4 — one query from algebra to plan → [`sql-notes.md`](./sql-notes.md) §5 + [`llm-query.md`](./llm-query.md) §3
+- [x] Task 5 (stretcher) — correlated subquery and window-function rewrites → [`stretcher.md`](./stretcher.md)
+- [x] The harvest — curiosities with sources → [`sql-notes.md`](./sql-notes.md) §8
+- [x] [`Reflections/ref03.md`](../Reflections/ref03.md)
+
+**Outstanding**
+
+- [ ] **Task C** — 15-minute plan comparison with a neighbouring pod → [`sql-notes.md`](./sql-notes.md) §7. Prepared in full; needs the other pod in the room. No Task Pod assigned to me as of this session.
+- [ ] Regenerate [`evidence.txt`](./evidence.txt) on this machine after any change to the setup or the queries.
 
 ---
 
