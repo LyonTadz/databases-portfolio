@@ -1,0 +1,119 @@
+# Task 1 — Ask the LLM, then check the plan
+
+[← Module 3 home](./README.md) · [SQL notes](./sql-notes.md) · [Benchmark](./bench.md)
+
+**Environment:** SQLite `<paste your sqlite3 --version>`, `module-03/warehouse.db` (2,000 customers · 500 products · 60,000 orders · 240,000 order lines).
+
+---
+
+## 1. The prompt
+
+Given to the model verbatim:
+
+> SQLite schema: `customer(customer_id, name, city)`, `product(product_id, sku, price)`, `orders(order_id, customer_id, ordered_on, status)`, `order_line(order_id, product_id, qty)`. Write a query that returns, for each city, the number of distinct customers and the total revenue (sum of `qty*price`) of orders placed in 2025, ordered by revenue descending.
+
+## 2. The SQL it produced
+
+```sql
+SELECT c.city,
+       COUNT(DISTINCT c.customer_id) AS customers,
+       SUM(ol.qty * p.price)         AS revenue
+FROM customer c
+JOIN orders o      ON o.customer_id = c.customer_id
+JOIN order_line ol ON ol.order_id = o.order_id
+JOIN product p     ON p.product_id = ol.product_id
+WHERE o.ordered_on >= '2025-01-01' AND o.ordered_on < '2026-01-01'
+GROUP BY c.city
+ORDER BY revenue DESC;
+```
+
+## 3. My predicted plan, and the real one
+
+**What I predicted before running it:** `<fill in — which tables did you expect to SCAN, which to SEARCH?>`
+
+**What SQLite actually did:**
+
+```
+SCAN ol
+SEARCH o USING INTEGER PRIMARY KEY (rowid=?)
+SEARCH c USING INTEGER PRIMARY KEY (rowid=?)
+SEARCH p USING INTEGER PRIMARY KEY (rowid=?)
+USE TEMP B-TREE FOR GROUP BY
+USE TEMP B-TREE FOR count(DISTINCT)
+USE TEMP B-TREE FOR ORDER BY
+```
+
+Read as a loop nest, outer line first:
+
+| Line | What the engine does |
+|---|---|
+| `SCAN ol` | Reads **all 240,000** `order_line` rows. This is the outer loop — the largest table drives everything. |
+| `SEARCH o USING INTEGER PRIMARY KEY (rowid=?)` | For each line, one rowid lookup into `orders`. Free-ish: `order_id INTEGER PRIMARY KEY` *is* the rowid, so there is no separate index to descend. |
+| `SEARCH c USING INTEGER PRIMARY KEY (rowid=?)` | Same, into `customer`. |
+| `SEARCH p USING INTEGER PRIMARY KEY (rowid=?)` | Same, into `product`. |
+| `USE TEMP B-TREE FOR GROUP BY` | No index supplies `city` order, so a temporary structure is built to group. |
+| `USE TEMP B-TREE FOR count(DISTINCT)` | A **second** temporary structure, just to deduplicate `customer_id` inside the aggregate. |
+| `USE TEMP B-TREE FOR ORDER BY` | A **third**, because `revenue` is computed and cannot be pre-sorted. |
+
+Three things worth saying out loud about this plan:
+
+1. **There is exactly one `SCAN`, and it is unavoidable.** The query aggregates over every 2025 order line; you cannot sum what you have not read. This is what the module means by *aggregate-heavy* — and it is why adding indexes does not rescue it (see [`bench.md`](./bench.md)).
+2. **The three `SEARCH … INTEGER PRIMARY KEY` lines are not evidence of good indexing.** They are free because `INTEGER PRIMARY KEY` is an alias for the rowid in SQLite, so the table *is* the index. No index I could add would improve them.
+3. **Three temp B-trees is the real cost signal.** The `WHERE` clause is cheap; the bookkeeping is expensive.
+
+## 4. Is it correct?
+
+**Yes, with one caveat and one trap.**
+
+### It gets the hard part right
+
+`COUNT(DISTINCT c.customer_id)` is load-bearing, and it is the thing most likely to be wrong in generated SQL. The join to `order_line` **multiplies each customer by their number of order lines**. Dropping `DISTINCT` gives:
+
+| city | `COUNT(DISTINCT customer_id)` | `COUNT(customer_id)` |
+|---|---:|---:|
+| Bielefeld | 500 | 40,908 |
+| Gütersloh | 500 | 40,464 |
+| Münster | 500 | 40,464 |
+| Paderborn | 500 | 40,464 |
+
+An ~81× error that still "looks about right" if you are not watching — which is precisely the Frachtflow failure mode from the story.
+
+### The year filter is in the right place — *here*
+
+`WHERE o.ordered_on >= '2025-01-01' AND o.ordered_on < '2026-01-01'` is correct, and deliberately avoids `date(o.ordered_on)` or `strftime('%Y', …)`, either of which would wrap the column and rule out any index on it. A half-open range is the right idiom.
+
+But "right place" depends on the join type. With these **inner** joins, `WHERE` and `ON` are equivalent. If any join became a `LEFT JOIN` — say, to include cities whose customers ordered nothing — the same predicate in `WHERE` would silently discard the outer rows it was added to preserve, because `NULL >= '2025-01-01'` is not true. It would have to move into the `ON` clause.
+
+### The caveat: "distinct customers" is a dead column on this dataset
+
+The honest finding is that it returns `500` for all four cities, because the setup script gives every one of the 2,000 customers at least one 2025 order and distributes cities by `customer_id % 4`. The column is simultaneously **necessary** (without `DISTINCT` it is nonsense) and **uninformative** (with it, it is 500 four times). I would not have noticed either way without checking the data behind the number.
+
+### The trap: customers with no orders disappear
+
+Inner joins drop them. On this dataset that is invisible — zero customers have no orders — so the query *happens* to answer the question. On real data it would under-report, and silently. The question "the number of distinct customers" is ambiguous between *customers who ordered* and *customers in the city*; the SQL answers the first and the prompt does not say which was wanted.
+
+### The result
+
+```
+Bielefeld     500   11,242,176.00
+Gütersloh     500    8,422,344.00
+Münster       500    5,493,504.00
+Paderborn     500    2,815,656.00
+```
+
+**Do not read a business story into this.** A 4× revenue spread across cities with identical customer counts is an artefact: city is `x % 4`, product is `(x % 500) + 1`, qty is `1 + (x % 4)`, and price is derived from `x % 90` — so city, quantity and price are all driven by the same counter and come out correlated. Catching that is the same skill as reading a legacy schema in Module 2: the data looks like it means something and does not.
+
+## 5. Verdict
+
+| Gate | Result |
+|---|---|
+| Does it run? | Yes. |
+| Is it right? | For the question as asked, yes — `DISTINCT` is correctly placed and the date range is a proper half-open interval. It answers "customers who ordered", not "customers in the city", and the prompt did not disambiguate. |
+| Is it fast? | 84 ms baseline on 240,000 rows. One unavoidable `SCAN`, three temp B-trees. Indexes make it **worse** — see [`bench.md`](./bench.md). |
+| Is it safe? | No parameters involved here, but the same model, asked for an application version, would happily build it with f-strings — see [`injection_demo.py`](./injection_demo.py). |
+
+**What I would have missed without the plan:** that the index advice the same model gave in the next breath was wrong, and why. The query is fine. The follow-up advice was not, and only `EXPLAIN QUERY PLAN` could tell the difference.
+
+---
+
+[← Module 3 home](./README.md) · [Benchmark →](./bench.md)
