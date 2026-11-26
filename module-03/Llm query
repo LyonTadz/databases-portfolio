@@ -2,7 +2,7 @@
 
 [← Module 3 home](./README.md) · [SQL notes](./sql-notes.md) · [Benchmark](./bench.md)
 
-**Environment:** SQLite `<paste your sqlite3 --version>`, `module-03/warehouse.db` (2,000 customers · 500 products · 60,000 orders · 240,000 order lines).
+**Environment:** SQLite 3.45.3 (CLI, `2024-04-15`), `module-03/warehouse.db` (2,000 customers · 500 products · 60,000 orders · 240,000 order lines).
 
 ---
 
@@ -29,7 +29,7 @@ ORDER BY revenue DESC;
 
 ## 3. My predicted plan, and the real one
 
-**What I predicted before running it:** `<fill in — which tables did you expect to SCAN, which to SEARCH?>`
+**What I predicted before running it.** The query is written `FROM customer c JOIN orders o JOIN order_line ol JOIN product p`, so I expected the engine to follow that order: `SCAN customer` as the outer loop, then search down through the chain. Four tables, one scan at the top, three searches below.
 
 **What SQLite actually did:**
 
@@ -55,7 +55,11 @@ Read as a loop nest, outer line first:
 | `USE TEMP B-TREE FOR count(DISTINCT)` | A **second** temporary structure, just to deduplicate `customer_id` inside the aggregate. |
 | `USE TEMP B-TREE FOR ORDER BY` | A **third**, because `revenue` is computed and cannot be pre-sorted. |
 
-Three things worth saying out loud about this plan:
+**Where my prediction was wrong, and why it matters.** I got the *shape* right — one scan, three searches — and the *table* wrong. The engine ignored the written join order entirely and made `order_line` the outer loop, not `customer`.
+
+That is not an optimization detail; it is the point. The `FROM` clause is a description of *what* to join, not an instruction about *how*. SQLite reorders joins freely, and here it chose the 240,000-row table as the driver because every other table is reachable from it by a single rowid lookup — whereas starting at `customer` would mean searching `order_line` for matching orders, which without an index is a scan per customer. Reading the written order as the execution order is the same category of mistake as reading `SELECT` as the first clause evaluated (§6).
+
+Three further things worth saying out loud about this plan:
 
 1. **There is exactly one `SCAN`, and it is unavoidable.** The query aggregates over every 2025 order line; you cannot sum what you have not read. This is what the module means by *aggregate-heavy* — and it is why adding indexes does not rescue it (see [`bench.md`](./bench.md)).
 2. **The three `SEARCH … INTEGER PRIMARY KEY` lines are not evidence of good indexing.** They are free because `INTEGER PRIMARY KEY` is an alias for the rowid in SQLite, so the table *is* the index. No index I could add would improve them.
