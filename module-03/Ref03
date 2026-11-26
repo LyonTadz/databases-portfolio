@@ -1,0 +1,92 @@
+# Reflection 3 — LLM-Assisted SQL & Query Profiling
+
+> Module 3 · Session 3 · [Module 3 portfolio page](../module-03/README.md)
+>
+> **This one is yours to write, and it has to be.** The course template below asks
+> who helped you and what you struggled with — I cannot answer either, and the
+> instructor reads these to hear you rather than a summary of the module. Reflections
+> are 4 of the 20 points and this is the fastest one in the portfolio to earn:
+> ten minutes, no commands, no verification.
+>
+> Prompts under each heading are scaffolding — delete them as you write over them.
+
+## Take-away — what I want to remember, and my advice
+
+<!--
+  One or two things, not a summary of the module. Candidates from your own work,
+  if any of them is what actually stuck:
+  - "SEARCH" in a plan means the engine used an index, not that using it was a good
+    idea — the slowest plan I measured is made entirely of SEARCH lines.
+  - An index is not a property of a table. It is a relationship between a table and
+    a specific predicate.
+  - The LLM's query was fine. The LLM's *advice about the query* was wrong. Those are
+    different failure modes and only the plan told them apart.
+  Advice to someone starting this module: ?
+-->
+
+## What was good
+
+<!--
+  What actually worked. Did predicting before running change how you read the plans?
+  Was the one-command regeneration (evidence.py) worth setting up, or overkill?
+-->
+
+## What was difficult, where I struggled
+
+<!--
+  Be concrete and honest — "where did you struggle" is a graded prompt and a vague
+  answer reads as nothing happened. Real candidates from this module, if they are true
+  for you:
+  - Getting back into the terminal after a month away; shell prompt vs sqlite> prompt.
+  - Two clones of the repo on the machine, and not knowing which one was live.
+  - Reading a four-table plan as a loop nest rather than a list.
+  - Explaining WHY an index made something slower, as opposed to observing that it did.
+-->
+
+## Good or fun struggling / exploration
+
+<!--
+  The LIKE 'Bei%' result is a genuine rabbit hole if you went down it — the query
+  refuses the index, and the reason turns out to be collation rather than the
+  wildcard everybody talks about. Did you chase anything like that? Anything you
+  are still not sure about?
+-->
+
+## Show stoppers — anything to raise with peers or instructors
+
+<!--
+  Task C is outstanding and needs a neighbouring pod. Module 2 §7 still has no
+  names in it either. Say so here — an open item named in a reflection reads as
+  tracking your own work; the same item unmentioned reads as not noticing.
+-->
+
+## Interaction with peers and instructors
+
+<!--
+  Who you worked with this session. Rayan and Aron were your Module 2 group —
+  was it the same people, has a Task Pod been assigned since?
+-->
+
+## Help and extra work
+
+- **Who helped me, and was it valuable:**
+- **Who I helped, or gave feedback to:**
+- **Did I present, implement, make a PR, or fix something crucial for the class:**
+
+## AI verification — explicitly required for this module
+
+<!--
+  The module checklist asks this reflection to address AI verification directly.
+  This is the one section where you have concrete material and should name specifics:
+  - What did the model get right? (The dashboard query itself was correct — DISTINCT
+    correctly placed, date range a proper half-open interval.)
+  - What did it get wrong? (All three index recommendations, for the query it was
+    asked about. The LIKE rule, at its boundary. The row count of the subquery rewrite.)
+  - What is the habit you are taking forward — what would you now check before
+    pasting generated SQL into anything?
+  Write it as what you concluded, not as a list of findings.
+-->
+
+---
+
+[← Reflections index](./README.md) · [Module 3](../module-03/README.md)
